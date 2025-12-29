@@ -1,0 +1,34 @@
+#ifndef _BOT_H
+#define _BOT_H
+
+#include <concord/discord.h>
+
+typedef struct bot bot_t;
+
+struct bot_context {
+    void* user;
+    bot_t* bot;
+    struct discord* client;
+};
+
+struct bot_callbacks {
+    void* user;
+
+    void (*on_ready)(const struct bot_context* context, const struct discord_ready* event);
+    void (*on_interaction)(const struct bot_context* context,
+                           const struct discord_interaction* event);
+};
+
+struct bot_spec {
+    const struct credentials* creds;
+    const struct bot_callbacks* callbacks;
+};
+
+bot_t* bot_create(const struct bot_spec* spec);
+void bot_destroy(bot_t* bot);
+
+uint64_t bot_get_app_id(const bot_t* bot);
+
+void bot_start(bot_t* bot);
+
+#endif
