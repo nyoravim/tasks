@@ -3,11 +3,14 @@
 #include "command_manager.h"
 #include "database.h"
 
+#define LOGMOD_STATIC
 #include <concord/discord.h>
 #include <concord/log.h>
 
 #include <signal.h>
 #include <string.h>
+
+#include <hiredis/hiredis.h>
 
 struct bot_data {
     bot_t* bot;
@@ -69,6 +72,57 @@ static void on_fill_form(const struct command_context* context) {
                                         &ret);
 }
 
+static void send_redis_command(struct bot_data* data, const char* command, char* buffer,
+                               size_t length) {
+    redisContext* ctx = db_get_context(data->db);
+
+    redisReply* reply = redisCommand(ctx, "%s", command);
+    snprintf(buffer, length, "redis: %s", reply->str);
+    freeReplyObject(reply);
+}
+
+static void on_send_command(const struct command_context* context) {
+    const char* command = NULL;
+    for (int i = 0; i < context->event->data->options->size; i++) {
+        const struct discord_application_command_interaction_data_option* option =
+            &context->event->data->options->array[i];
+
+        if (strcmp(option->name, "command") == 0) {
+            command = option->value;
+            break;
+        }
+    }
+
+    size_t buffer_size = 256;
+    char buffer[buffer_size + 1];
+    buffer[buffer_size] = '\0';
+
+    if (command) {
+        send_redis_command(context->user, command, buffer, buffer_size);
+    } else {
+        strncpy(buffer, "no command specified", buffer_size);
+    }
+
+    struct discord_interaction_callback_data callback_data;
+    memset(&callback_data, 0, sizeof(struct discord_interaction_callback_data));
+    callback_data.content = buffer;
+
+    struct discord_interaction_response params;
+    memset(&params, 0, sizeof(struct discord_interaction_response));
+    params.type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE;
+    params.data = &callback_data;
+
+    struct discord_ret_interaction_response ret;
+    memset(&ret, 0, sizeof(struct discord_ret_interaction_response));
+    ret.fail = reply_fail;
+
+    struct bot_data* data = context->user;
+    struct discord* client = bot_get_client(data->bot);
+
+    discord_create_interaction_response(client, context->event->id, context->event->token, &params,
+                                        &ret);
+}
+
 static void create_command(const struct bot_data* data) {
     struct discord_application_command_option option;
     memset(&option, 0, sizeof(struct discord_application_command_option));
@@ -90,6 +144,14 @@ static void create_command(const struct bot_data* data) {
     spec.options = &options;
     spec.type = DISCORD_APPLICATION_CHAT_INPUT;
     spec.callback = on_fill_form;
+
+    cm_add_command(data->cm, &spec);
+
+    spec.name = "send-command";
+    spec.description = "send command to redis database";
+    spec.callback = on_send_command;
+    option.name = "command";
+    option.description = "command to send";
 
     cm_add_command(data->cm, &spec);
 }
@@ -137,7 +199,7 @@ int main(int argc, const char** argv) {
     __sighandler_t prev_handler = signal(SIGINT, sigint_handler);
 
     struct bot_data data;
-    data.db = db_connect("127.0.0.1", 6381);
+    data.db = db_connect("127.0.0.1", 6379);
 
     if (!data.db) {
         return 1;

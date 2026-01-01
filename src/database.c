@@ -37,3 +37,5 @@ void db_close(database_t* db) {
     redisFree(db->ctx);
     nv_free(db);
 }
+
+redisContext* db_get_context(const database_t* db) { return db->ctx; }
