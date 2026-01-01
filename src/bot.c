@@ -1,6 +1,7 @@
 #include "bot.h"
 #include "credentials.h"
 
+#define LOGMOD_STATIC
 #include <concord/discord.h>
 #include <concord/log.h>
 

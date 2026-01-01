@@ -8,6 +8,7 @@ this discord bot is intended to solve one of those needs
 depends on the following
 - json-c
 - libcurl
+- hiredis
 - concord (`concord-git` on aur)
 - libnyoravim (`libnyoravim-git` on aur)
 

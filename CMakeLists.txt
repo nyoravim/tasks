@@ -10,8 +10,9 @@ find_package(libnyoravim REQUIRED)
 target_link_libraries(
     tasks PRIVATE 
     pthread
+    libnyoravim
     discord
     curl
     json-c::json-c
-    libnyoravim
+    hiredis
 )

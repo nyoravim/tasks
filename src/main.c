@@ -1,6 +1,7 @@
 #include "bot.h"
 #include "credentials.h"
 #include "command_manager.h"
+#include "database.h"
 
 #include <concord/discord.h>
 #include <concord/log.h>
@@ -11,6 +12,8 @@
 struct bot_data {
     bot_t* bot;
     command_manager_t* cm;
+
+    database_t* db;
 };
 
 static bot_t* active_bot;
@@ -92,7 +95,7 @@ static void create_command(const struct bot_data* data) {
 }
 
 static void on_ready(const struct bot_context* context, const struct discord_ready* event) {
-    log_info("authenticated: %s#%s\n", event->user->username, event->user->discriminator);
+    log_info("authenticated as %s#%s", event->user->username, event->user->discriminator);
 
     create_command(context->user);
 }
@@ -134,8 +137,18 @@ int main(int argc, const char** argv) {
     __sighandler_t prev_handler = signal(SIGINT, sigint_handler);
 
     struct bot_data data;
+    data.db = db_connect("127.0.0.1", 6381);
+
+    if (!data.db) {
+        return 1;
+    }
+
     data.bot = create_bot(&data);
-    data.cm = cm_new(&data, bot_get_client(data.bot), bot_get_app_id(data.bot));
+    if (data.bot) {
+        data.cm = cm_new(&data, bot_get_client(data.bot), bot_get_app_id(data.bot));
+    } else {
+        data.cm = NULL;
+    }
 
     active_bot = data.bot;
     if (data.bot) {
@@ -147,6 +160,7 @@ int main(int argc, const char** argv) {
 
     bot_destroy(data.bot);
     cm_destroy(data.cm);
+    db_close(data.db);
 
     return data.bot ? 0 : 1;
 }
