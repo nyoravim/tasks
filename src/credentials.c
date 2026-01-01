@@ -1,22 +1,21 @@
 #include "credentials.h"
 
-#include <cjson/cJSON.h>
+#include <json.h>
 
 #include <concord/log.h>
 
 #include <malloc.h>
-#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
 
-static const char* get_object_string(const cJSON* object, const char* key) {
-    cJSON* item = cJSON_GetObjectItem(object, key);
+static const char* get_object_string(const json_object* object, const char* key) {
+    json_object* item = json_object_object_get(object, key);
     if (!item) {
         return NULL;
     }
 
-    return cJSON_GetStringValue(item);
+    return json_object_get_string(item);
 }
 
 static bool parse_to_u64(const char* str, uint64_t* value) {
@@ -26,47 +25,24 @@ static bool parse_to_u64(const char* str, uint64_t* value) {
     return errno != ERANGE && endptr != str;
 }
 
-static bool get_object_int(const cJSON* object, const char* key, uint64_t* value) {
-    cJSON* item = cJSON_GetObjectItem(object, key);
+static bool get_object_int(const json_object* object, const char* key, uint64_t* value) {
+    json_object* item = json_object_object_get(object, key);
     if (!item) {
         return false;
     }
 
-    const char* integer_str = cJSON_GetStringValue(item);
-    return parse_to_u64(integer_str, value);
+    if (!json_object_is_type(item, json_type_int)) {
+        return false;
+    }
+
+    *value = json_object_get_uint64(item);
+    return true;
 }
 
 struct credentials* credentials_read_from_path(const char* path) {
-    FILE* file = fopen(path, "r");
-    if (!file) {
-        log_error("Failed to open credentials file: %s", path);
-        return NULL;
-    }
-
-    fseek(file, 0, SEEK_END);
-    size_t len = ftell(file);
-    fseek(file, 0, SEEK_SET);
-
-    char* buffer = malloc(len);
-    fread(buffer, 1, len, file);
-    fclose(file);
-
-    struct credentials* creds = credentials_read_from_data(buffer, len);
-    free(buffer);
-
-    return creds;
-}
-
-struct credentials* credentials_read_from_data(const char* data, size_t len) {
-    cJSON* json = cJSON_ParseWithLength(data, len);
-
-    if (!data) {
-        const char* error = cJSON_GetErrorPtr();
-        if (!error) {
-            error = "<null>";
-        }
-
-        log_error("Failed to parse credentials: %s", error);
+    json_object* json = json_object_from_file(path);
+    if (!json) {
+        log_error("Failed to parse credentials file: %s", json_util_get_last_err());
         return NULL;
     }
 
@@ -77,6 +53,7 @@ struct credentials* credentials_read_from_data(const char* data, size_t len) {
     if (!token || !has_app_id) {
         log_error("Invalid credential format! Must provide token (str) and app_id (str)!");
 
+        json_object_put(json);
         return NULL;
     }
 
@@ -84,6 +61,7 @@ struct credentials* credentials_read_from_data(const char* data, size_t len) {
     creds->token = strdup(token);
     creds->app_id = app_id;
 
+    json_object_put(json);
     return creds;
 }
 

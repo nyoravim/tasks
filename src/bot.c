@@ -4,8 +4,11 @@
 #include <concord/discord.h>
 #include <concord/log.h>
 
-#include <malloc.h>
 #include <string.h>
+#include <assert.h>
+
+#include <nyoravim/map.h>
+#include <nyoravim/mem.h>
 
 typedef struct bot {
     struct discord* client;
@@ -48,28 +51,32 @@ static struct discord* create_discord_client(const char* token) {
 
     config.log.color = true;
     config.log.level = LOGMOD_LEVEL_TRACE;
-    config.token = strdup(token); /* concord owns the token string fsr */
+
+    /* concord owns the token string fsr */
+    config.token = strdup(token); /* NOT nv_strdup! */
 
     return discord_from_config(&config);
 }
 
 bot_t* bot_create(const struct bot_spec* spec) {
     struct credentials* creds = credentials_dup(spec->creds);
-    log_info("Authenticating as app %" PRIu64, creds->app_id);
+    log_info("authenticating as app %" PRIu64, creds->app_id);
 
     struct discord* client = create_discord_client(creds->token);
     if (!client) {
-        log_error("Failed to connect client!");
+        log_error("failed to connect client!");
+        return NULL;
     }
 
     discord_set_on_ready(client, bot_on_ready);
     discord_set_on_interaction_create(client, bot_on_interaction);
 
-    bot_t* bot = malloc(sizeof(bot_t));
-    memcpy(&bot->callbacks, spec->callbacks, sizeof(struct bot_callbacks));
+    bot_t* bot = nv_alloc(sizeof(bot_t));
+    assert(bot);
 
     discord_set_data(client, bot);
 
+    memcpy(&bot->callbacks, spec->callbacks, sizeof(struct bot_callbacks));
     bot->creds = creds;
     bot->client = client;
 
@@ -84,9 +91,11 @@ void bot_destroy(bot_t* bot) {
     discord_cleanup(bot->client);
 
     credentials_free(bot->creds);
-    free(bot);
+    nv_free(bot);
 }
 
+struct discord* bot_get_client(const bot_t* bot) { return bot->client; }
 uint64_t bot_get_app_id(const bot_t* bot) { return bot->creds->app_id; }
 
 void bot_start(bot_t* bot) { discord_run(bot->client); }
+void bot_stop(bot_t* bot) { discord_shutdown(bot->client); }
