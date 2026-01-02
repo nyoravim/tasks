@@ -32,8 +32,12 @@ static void sigint_handler(int sig) {
     bot_stop(active_bot);
 }
 
-static void reply_fail(struct discord* client, struct discord_response* response) {
-    log_error("%s", discord_strerror(response->code, client));
+static void on_success(const struct bot_context* context, const struct discord_response* response) {
+    log_info("success");
+}
+
+static void on_error(const struct bot_context* context, const struct discord_response* response) {
+    log_error("Discord error: %s", discord_strerror(response->code, context->client));
 }
 
 static void on_fill_form(const struct command_context* context) {
@@ -65,12 +69,11 @@ static void on_fill_form(const struct command_context* context) {
     params.type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE;
     params.data = &callback_data;
 
-    struct discord_ret_interaction_response ret;
-    memset(&ret, 0, sizeof(struct discord_ret_interaction_response));
-    ret.fail = reply_fail;
-
     struct bot_data* data = context->user;
     struct discord* client = bot_get_client(data->client.bot);
+
+    struct discord_ret_interaction_response ret;
+    bot_populate_interaction_ret(data->client.bot, &ret);
 
     discord_create_interaction_response(client, context->event->id, context->event->token, &params,
                                         &ret);
@@ -116,12 +119,11 @@ static void on_send_command(const struct command_context* context) {
     params.type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE;
     params.data = &callback_data;
 
-    struct discord_ret_interaction_response ret;
-    memset(&ret, 0, sizeof(struct discord_ret_interaction_response));
-    ret.fail = reply_fail;
-
     struct bot_data* data = context->user;
     struct discord* client = bot_get_client(data->client.bot);
+
+    struct discord_ret_interaction_response ret;
+    bot_populate_interaction_ret(data->client.bot, &ret);
 
     discord_create_interaction_response(client, context->event->id, context->event->token, &params,
                                         &ret);
@@ -184,9 +186,14 @@ static bot_t* create_bot(struct bot_data* data) {
     }
 
     struct bot_callbacks callbacks;
+    memset(&callbacks, 0, sizeof(struct bot_callbacks));
+
     callbacks.user = data;
     callbacks.on_ready = on_ready;
     callbacks.on_interaction = on_interaction;
+
+    callbacks.on_success = on_success;
+    callbacks.on_error = on_error;
 
     struct bot_spec spec;
     spec.creds = creds;

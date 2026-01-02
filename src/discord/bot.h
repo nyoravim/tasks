@@ -20,6 +20,7 @@ struct bot_callbacks {
     void (*on_interaction)(const struct bot_context* context,
                            const struct discord_interaction* event);
 
+    void (*on_success)(const struct bot_context* context, const struct discord_response* response);
     void (*on_error)(const struct bot_context* context, const struct discord_response* response);
 };
 
@@ -36,5 +37,7 @@ uint64_t bot_get_app_id(const bot_t* bot);
 
 void bot_start(bot_t* bot);
 void bot_stop(bot_t* bot);
+
+void bot_populate_interaction_ret(bot_t* bot, struct discord_ret_interaction_response* ret);
 
 #endif

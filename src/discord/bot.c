@@ -100,3 +100,36 @@ uint64_t bot_get_app_id(const bot_t* bot) { return bot->creds->app_id; }
 
 void bot_start(bot_t* bot) { discord_run(bot->client); }
 void bot_stop(bot_t* bot) { discord_shutdown(bot->client); }
+
+static void bot_on_interaction_done(struct discord* client, struct discord_response* response,
+                                    const struct discord_interaction_response* event) {
+    bot_t* bot = discord_get_data(client);
+    if (!bot->callbacks.on_success) {
+        return;
+    }
+
+    struct bot_context context;
+    make_bot_context(bot, &context);
+
+    bot->callbacks.on_success(&context, response);
+}
+
+static void bot_on_fail(struct discord* client, struct discord_response* response) {
+    bot_t* bot = discord_get_data(client);
+    if (!bot->callbacks.on_error) {
+        return;
+    }
+
+    struct bot_context context;
+    make_bot_context(bot, &context);
+
+    bot->callbacks.on_error(&context, response);
+}
+
+void bot_populate_interaction_ret(bot_t* bot, struct discord_ret_interaction_response* ret) {
+    memset(ret, 0, sizeof(struct discord_ret_interaction_response));
+
+    ret->data = bot;
+    ret->done = bot_on_interaction_done;
+    ret->fail = bot_on_fail;
+}
