@@ -5,7 +5,7 @@
 
 #include <concord/discord.h>
 
-typedef struct command_manager command_manager_t;
+typedef struct cm cm_t;
 
 struct command_context {
     void* user;
@@ -53,12 +53,12 @@ struct command_spec {
     uint64_t guild_id;
 };
 
-command_manager_t* cm_new(void* user, struct discord* client, uint64_t app_id);
-void cm_destroy(command_manager_t* cm);
+cm_t* cm_new(void* user, struct discord* client, uint64_t app_id);
+void cm_destroy(cm_t* cm);
 
-bool cm_add_command(command_manager_t* cm, const struct command_spec* spec);
+bool cm_add_command(cm_t* cm, const struct command_spec* spec);
 
-bool cm_process_interaction(const command_manager_t* cm, void* user_context,
+bool cm_process_interaction(const cm_t* cm, void* user_context,
                             const struct discord_interaction* event);
 
 #endif

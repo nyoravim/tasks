@@ -19,13 +19,13 @@ struct command_family {
     nv_map_t* guilds;
 };
 
-typedef struct command_manager {
+typedef struct cm {
     void* user;
     nv_map_t* families;
 
     struct discord* client;
     uint64_t app_id;
-} command_manager_t;
+} cm_t;
 
 static size_t cm_hash_key(void* user, const void* key) { return nv_hash_string(key); }
 
@@ -58,7 +58,7 @@ static void free_family(struct command_family* family) {
 
 static void cm_free_value(void* user, void* value) { free_family(value); }
 
-command_manager_t* cm_new(void* user, struct discord* client, uint64_t app_id) {
+cm_t* cm_new(void* user, struct discord* client, uint64_t app_id) {
     struct nv_map_callbacks callbacks;
     memset(&callbacks, 0, sizeof(struct nv_map_callbacks));
 
@@ -68,7 +68,7 @@ command_manager_t* cm_new(void* user, struct discord* client, uint64_t app_id) {
     callbacks.free_key = cm_free_key;
     callbacks.free_value = cm_free_value;
 
-    command_manager_t* cm = nv_alloc(sizeof(command_manager_t));
+    cm_t* cm = nv_alloc(sizeof(cm_t));
     assert(cm);
 
     cm->user = user;
@@ -81,7 +81,7 @@ command_manager_t* cm_new(void* user, struct discord* client, uint64_t app_id) {
     return cm;
 }
 
-void cm_destroy(command_manager_t* cm) {
+void cm_destroy(cm_t* cm) {
     if (!cm) {
         return;
     }
@@ -90,8 +90,7 @@ void cm_destroy(command_manager_t* cm) {
     nv_free(cm);
 }
 
-static struct bot_command* register_global_command(command_manager_t* cm,
-                                                   const struct command_spec* spec) {
+static struct bot_command* register_global_command(cm_t* cm, const struct command_spec* spec) {
     struct discord_create_global_application_command params;
     params.default_member_permissions = spec->default_member_permissions;
     params.type = spec->type;
@@ -126,7 +125,7 @@ static struct bot_command* register_global_command(command_manager_t* cm,
     return cmd;
 }
 
-static bool add_global_command(command_manager_t* cm, const struct command_spec* spec) {
+static bool add_global_command(cm_t* cm, const struct command_spec* spec) {
     if (nv_map_contains(cm->families, spec->name)) {
         /* at least one command with name already exists */
         return false;
@@ -147,7 +146,7 @@ static bool add_global_command(command_manager_t* cm, const struct command_spec*
     return true;
 }
 
-bool cm_add_command(command_manager_t* cm, const struct command_spec* spec) {
+bool cm_add_command(cm_t* cm, const struct command_spec* spec) {
     if (spec->guild_specific) {
         /* todo(nora): implement */
         return false;
@@ -156,7 +155,7 @@ bool cm_add_command(command_manager_t* cm, const struct command_spec* spec) {
     }
 }
 
-static const struct bot_command* find_command(const command_manager_t* cm,
+static const struct bot_command* find_command(const cm_t* cm,
                                               const struct discord_interaction* event) {
     const struct command_family* family;
     if (!nv_map_get(cm->families, event->data->name, (void**)&family)) {
@@ -176,7 +175,7 @@ static const struct bot_command* find_command(const command_manager_t* cm,
     return cmd;
 }
 
-bool cm_process_interaction(const command_manager_t* cm, void* user_context,
+bool cm_process_interaction(const cm_t* cm, void* user_context,
                             const struct discord_interaction* event) {
     const struct bot_command* cmd = find_command(cm, event);
     if (!cmd) {

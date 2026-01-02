@@ -19,6 +19,8 @@ struct bot_callbacks {
     void (*on_ready)(const struct bot_context* context, const struct discord_ready* event);
     void (*on_interaction)(const struct bot_context* context,
                            const struct discord_interaction* event);
+
+    void (*on_error)(const struct bot_context* context, const struct discord_response* response);
 };
 
 struct bot_spec {

@@ -1,6 +1,7 @@
-#include "bot.h"
-#include "credentials.h"
-#include "command_manager.h"
+#include "discord/bot.h"
+#include "discord/credentials.h"
+#include "discord/command_manager.h"
+
 #include "database.h"
 
 #define LOGMOD_STATIC
@@ -12,10 +13,13 @@
 
 #include <hiredis/hiredis.h>
 
-struct bot_data {
+struct client {
     bot_t* bot;
-    command_manager_t* cm;
+    cm_t* cm;
+};
 
+struct bot_data {
+    struct client client;
     database_t* db;
 };
 
@@ -66,7 +70,7 @@ static void on_fill_form(const struct command_context* context) {
     ret.fail = reply_fail;
 
     struct bot_data* data = context->user;
-    struct discord* client = bot_get_client(data->bot);
+    struct discord* client = bot_get_client(data->client.bot);
 
     discord_create_interaction_response(client, context->event->id, context->event->token, &params,
                                         &ret);
@@ -117,7 +121,7 @@ static void on_send_command(const struct command_context* context) {
     ret.fail = reply_fail;
 
     struct bot_data* data = context->user;
-    struct discord* client = bot_get_client(data->bot);
+    struct discord* client = bot_get_client(data->client.bot);
 
     discord_create_interaction_response(client, context->event->id, context->event->token, &params,
                                         &ret);
@@ -145,7 +149,7 @@ static void create_command(const struct bot_data* data) {
     spec.type = DISCORD_APPLICATION_CHAT_INPUT;
     spec.callback = on_fill_form;
 
-    cm_add_command(data->cm, &spec);
+    cm_add_command(data->client.cm, &spec);
 
     spec.name = "send-command";
     spec.description = "send command to redis database";
@@ -153,7 +157,7 @@ static void create_command(const struct bot_data* data) {
     option.name = "command";
     option.description = "command to send";
 
-    cm_add_command(data->cm, &spec);
+    cm_add_command(data->client.cm, &spec);
 }
 
 static void on_ready(const struct bot_context* context, const struct discord_ready* event) {
@@ -165,7 +169,7 @@ static void on_ready(const struct bot_context* context, const struct discord_rea
 static void on_interaction(const struct bot_context* context,
                            const struct discord_interaction* event) {
     struct bot_data* data = context->user;
-    if (cm_process_interaction(data->cm, NULL, event)) {
+    if (cm_process_interaction(data->client.cm, NULL, event)) {
         /* command handled */
         return;
     }
@@ -194,35 +198,49 @@ static bot_t* create_bot(struct bot_data* data) {
     return bot;
 }
 
+static bool initialize_client(struct client* client, void* user) {
+    memset(client, 0, sizeof(struct client));
+
+    client->bot = create_bot(user);
+    if (!client->bot) {
+        return false;
+    }
+
+    struct discord* dc = bot_get_client(client->bot);
+    uint64_t app_id = bot_get_app_id(client->bot);
+
+    client->cm = cm_new(user, dc, app_id);
+    if (!client->cm) {
+        return false;
+    }
+
+    return true;
+}
+
 int main(int argc, const char** argv) {
-    active_bot = NULL;
-    __sighandler_t prev_handler = signal(SIGINT, sigint_handler);
+    bool initialized = false;
 
     struct bot_data data;
     data.db = db_connect("127.0.0.1", 6379);
 
-    if (!data.db) {
-        return 1;
+    if (data.db) {
+        active_bot = NULL;
+        __sighandler_t prev_handler = signal(SIGINT, sigint_handler);
+
+        if (initialize_client(&data.client, &data)) {
+            initialized = true;
+
+            active_bot = data.client.bot;
+            bot_start(active_bot);
+        }
+
+        signal(SIGINT, prev_handler);
+        active_bot = NULL;
+
+        bot_destroy(data.client.bot);
+        cm_destroy(data.client.cm);
     }
 
-    data.bot = create_bot(&data);
-    if (data.bot) {
-        data.cm = cm_new(&data, bot_get_client(data.bot), bot_get_app_id(data.bot));
-    } else {
-        data.cm = NULL;
-    }
-
-    active_bot = data.bot;
-    if (data.bot) {
-        bot_start(data.bot);
-    }
-
-    signal(SIGINT, prev_handler);
-    active_bot = NULL;
-
-    bot_destroy(data.bot);
-    cm_destroy(data.cm);
     db_close(data.db);
-
-    return data.bot ? 0 : 1;
+    return initialized ? 0 : 1;
 }
