@@ -41,7 +41,7 @@ static void free_command(struct bot_command* cmd) {
     }
 
     /* is this necessary? */
-    discord_application_command_cleanup(&cmd->command);
+    /* discord_application_command_cleanup(&cmd->command); */
 
     nv_free(cmd);
 }
@@ -109,11 +109,12 @@ static struct bot_command* register_global_command(cm_t* cm, const struct comman
     memset(&ret, 0, sizeof(struct discord_ret_application_command));
     ret.sync = &app_cmd;
 
+    /*
     if (discord_create_global_application_command(cm->client, cm->app_id, &params, &ret) !=
         CCORD_OK) {
-        /* failure */
         return NULL;
     }
+    */
 
     struct bot_command* cmd = nv_alloc(sizeof(struct bot_command));
     assert(cmd);

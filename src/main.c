@@ -4,8 +4,6 @@
 
 #include "core/database.h"
 
-#include <concord/discord.h>
-
 #include <log.h>
 
 #include <signal.h>
@@ -37,7 +35,7 @@ static void on_success(const struct bot_context* context, const struct discord_r
 }
 
 static void on_error(const struct bot_context* context, const struct discord_response* response) {
-    log_error("discord error: %s", discord_strerror(response->code, context->client));
+    /* log_error("discord error: %s", discord_strerror(response->code, context->client)); */
 }
 
 static void on_fill_form(const struct command_context* context) {
@@ -85,10 +83,10 @@ static void on_fill_form(const struct command_context* context) {
     struct discord* client = bot_get_client(data->client.bot);
 
     struct discord_ret_interaction_response ret;
-    bot_populate_interaction_ret(data->client.bot, &ret);
+    /* bot_populate_interaction_ret(data->client.bot, &ret); */
 
-    discord_create_interaction_response(client, context->event->id, context->event->token, &params,
-                                        &ret);
+    /* discord_create_interaction_response(client, context->event->id, context->event->token,
+       &params, &ret); */
 }
 
 static void send_redis_command(struct bot_data* data, const char* command, char* buffer,
@@ -135,10 +133,10 @@ static void on_send_command(const struct command_context* context) {
     struct discord* client = bot_get_client(data->client.bot);
 
     struct discord_ret_interaction_response ret;
-    bot_populate_interaction_ret(data->client.bot, &ret);
+    /* bot_populate_interaction_ret(data->client.bot, &ret); */
 
-    discord_create_interaction_response(client, context->event->id, context->event->token, &params,
-                                        &ret);
+    /* discord_create_interaction_response(client, context->event->id, context->event->token,
+       &params, &ret); */
 }
 
 static void create_command(const struct bot_data* data) {
@@ -184,11 +182,8 @@ static void on_interaction(const struct bot_context* context,
                            const struct discord_interaction* event) {
     struct bot_data* data = context->user;
     if (cm_process_interaction(data->client.cm, NULL, event)) {
-        /* command handled */
         return;
     }
-
-    /* todo(nora): more */
 }
 
 static bot_t* create_bot(struct bot_data* data) {
@@ -200,12 +195,14 @@ static bot_t* create_bot(struct bot_data* data) {
     struct bot_callbacks callbacks;
     memset(&callbacks, 0, sizeof(struct bot_callbacks));
 
+    /*
     callbacks.user = data;
     callbacks.on_ready = on_ready;
     callbacks.on_interaction = on_interaction;
 
     callbacks.on_success = on_success;
     callbacks.on_error = on_error;
+    */
 
     struct bot_spec spec;
     spec.creds = creds;

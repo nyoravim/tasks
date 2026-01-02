@@ -2,8 +2,7 @@
 
 #include <json.h>
 
-#define LOGMOD_STATIC
-#include <concord/log.h>
+#include <log.h>
 
 #include <malloc.h>
 #include <string.h>

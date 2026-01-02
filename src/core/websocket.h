@@ -17,7 +17,7 @@ struct websocket_callbacks {
 };
 
 ws_t* ws_open(const char* url, const struct websocket_callbacks* callbacks);
-void ws_close_clean(ws_t* ws);
+void ws_close(ws_t* ws);
 
 bool ws_send(ws_t* ws, const void* data, size_t size, uint32_t flags);
 

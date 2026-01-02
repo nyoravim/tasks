@@ -27,6 +27,7 @@ struct request {
 static void free_request(CURLM* multi, struct request* req) {
     curl_multi_remove_handle(multi, req->handle);
     curl_easy_cleanup(req->handle);
+    curl_slist_free_all(req->headers);
 
     nv_free(req->body);
     nv_free(req);
@@ -225,7 +226,8 @@ static struct curl_slist* create_header_list(const char* const* headers, size_t 
     return list;
 }
 
-bool rest_send(rest_t* rest, const struct http_request* spec) {
+bool rest_send(rest_t* rest, const struct http_request* spec,
+               const struct rest_callbacks* callbacks) {
     CURL* handle = curl_easy_init();
     if (!handle) {
         log_error("failed to initialize handle for http request!");
@@ -235,7 +237,7 @@ bool rest_send(rest_t* rest, const struct http_request* spec) {
     struct request* req = nv_alloc(sizeof(struct request));
     assert(req);
 
-    memcpy(&req->callbacks, spec->callbacks, sizeof(struct rest_callbacks));
+    memcpy(&req->callbacks, callbacks, sizeof(struct rest_callbacks));
 
     req->handle = handle;
     req->body_offset = 0;
@@ -245,8 +247,8 @@ bool rest_send(rest_t* rest, const struct http_request* spec) {
     bool is_get = strcmp(method_upper, "GET") == 0;
     nv_free(method_upper);
 
-    if (is_get) {
-        /* get method should send no data */
+    /* get method should send no data */
+    if (is_get || spec->size == 0) {
         req->body_size = 0;
         req->body = NULL;
     } else {
@@ -272,4 +274,64 @@ bool rest_send(rest_t* rest, const struct http_request* spec) {
     assert(nv_map_insert(rest->requests, handle, req));
 
     return handle;
+}
+
+struct await_data {
+    bool done;
+    struct http_response* response;
+};
+
+static void async_receive_func(void* user, const void* data, size_t length) {
+    struct await_data* ad = user;
+    struct http_response* resp = ad->response;
+
+    size_t new_size = resp->length + length + 1; /* null terminator */
+    if (resp->length > 0) {
+        resp->content = nv_realloc(resp->content, new_size);
+    } else {
+        resp->content = nv_alloc(new_size);
+    }
+
+    assert(resp->content);
+    memcpy(resp->content + resp->length, data, length);
+
+    resp->length += length;
+    resp->content[resp->length] = '\0'; /* so its readable as a string */
+}
+
+static void async_on_done(void* user, CURLcode code, int64_t status) {
+    struct await_data* ad = user;
+
+    if (code != CURLE_OK && code != CURLE_HTTP_RETURNED_ERROR) {
+        log_warn("curl error: %s", curl_easy_strerror(code));
+    }
+
+    ad->done = true;
+    ad->response->status = status;
+}
+
+bool rest_send_await(rest_t* rest, const struct http_request* req, struct http_response* response) {
+    response->content = NULL;
+    response->length = 0;
+
+    struct await_data data;
+    data.done = false;
+    data.response = response;
+
+    struct rest_callbacks callbacks;
+    callbacks.user = &data;
+    callbacks.receive_data_callback = async_receive_func;
+    callbacks.done_callback = async_on_done;
+
+    if (!rest_send(rest, req, &callbacks)) {
+        return false;
+    }
+
+    while (!data.done) {
+        if (!rest_poll(rest)) {
+            return false;
+        }
+    }
+
+    return true;
 }

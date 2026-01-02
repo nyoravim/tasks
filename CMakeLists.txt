@@ -19,7 +19,6 @@ target_link_libraries(
     # system libraries
     pthread
     libnyoravim
-    discord
     CURL::libcurl
     json-c::json-c
     hiredis

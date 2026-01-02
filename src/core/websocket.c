@@ -54,7 +54,7 @@ ws_t* ws_open(const char* url, const struct websocket_callbacks* callbacks) {
     return ws;
 }
 
-void ws_close_clean(ws_t* ws) {
+void ws_close(ws_t* ws) {
     if (!ws) {
         return;
     }
@@ -64,6 +64,8 @@ void ws_close_clean(ws_t* ws) {
 
     curl_easy_cleanup(ws->handle);
     nv_free(ws);
+
+    rest_curl_unref();
 }
 
 bool ws_send(ws_t* ws, const void* data, size_t size, uint32_t flags) {
@@ -100,10 +102,8 @@ bool ws_poll(ws_t* ws) {
     do {
         CURLcode result = curl_ws_recv(ws->handle, buffer, buffer_size, &received, &meta);
         if (result == CURLE_AGAIN) {
-            log_info("no data on websocket; waiting a second...");
-            sleep(1);
-
-            continue;
+            /* no more data */
+            break;
         }
 
         if (result != CURLE_OK) {
