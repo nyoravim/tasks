@@ -12,6 +12,7 @@
 #include <assert.h>
 #include <inttypes.h>
 #include <unistd.h>
+#include <time.h>
 
 #include <nyoravim/map.h>
 #include <nyoravim/mem.h>
@@ -27,6 +28,7 @@ typedef struct bot {
 
     bool has_sequence;
     uint64_t sequence;
+
     uint64_t heartbeat_interval;
 
     bool running;
@@ -189,14 +191,61 @@ static ws_t* open_gateway(rest_t* rest, const char* token, uint32_t api,
     return gateway;
 }
 
+static bool get_opcode(const json_object* data, int32_t* opcode) {
+    json_object* field = json_object_object_get(data, "op");
+    if (!field) {
+        return false;
+    }
+
+    if (json_object_get_type(field) != json_type_int) {
+        return false;
+    }
+
+    *opcode = json_object_get_int(field);
+    return true;
+}
+
+static void handle_frame(json_object* frame, bot_t* bot) {
+    int32_t opcode;
+    if (!get_opcode(frame, &opcode)) {
+        log_warn("no opcode on gateway frame! not handling");
+        return;
+    }
+
+    log_trace("opcode: %" PRIi32, opcode);
+
+    json_object* data = json_object_object_get(frame, "d");
+    if (data && json_object_get_type(data) == json_type_null) {
+        data = NULL;
+    }
+
+    if (!data) {
+        log_debug("no data in frame");
+    }
+
+    /* todo: handle */
+}
+
 static void on_frame_received(void* user, const char* data, size_t size,
                               const struct curl_ws_frame* meta) {
+    if (!(meta->flags & CURLWS_TEXT)) {
+        return; /* dont care */
+    }
+
+    log_debug("frame received from gateway (len %zu)", size);
+
     /* going to assume its all in one frame */
     json_object* parsed = json_tokener_parse(data);
     if (!parsed) {
         log_warn("failed to parse frame from gateway: %s", data);
         return;
     }
+
+    handle_frame(parsed, user);
+
+    /* todo: handle sequence */
+
+    json_object_put(parsed);
 }
 
 bot_t* bot_create(const struct bot_spec* spec) {
