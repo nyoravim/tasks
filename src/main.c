@@ -2,7 +2,7 @@
 #include "discord/credentials.h"
 #include "discord/command_manager.h"
 
-#include "database.h"
+#include "core/database.h"
 
 #define LOGMOD_STATIC
 #include <concord/discord.h>
