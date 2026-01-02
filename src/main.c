@@ -4,9 +4,9 @@
 
 #include "core/database.h"
 
-#define LOGMOD_STATIC
 #include <concord/discord.h>
-#include <concord/log.h>
+
+#include <log.h>
 
 #include <signal.h>
 #include <string.h>
@@ -37,7 +37,7 @@ static void on_success(const struct bot_context* context, const struct discord_r
 }
 
 static void on_error(const struct bot_context* context, const struct discord_response* response) {
-    log_error("Discord error: %s", discord_strerror(response->code, context->client));
+    log_error("discord error: %s", discord_strerror(response->code, context->client));
 }
 
 static void on_fill_form(const struct command_context* context) {
