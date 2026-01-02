@@ -10,7 +10,7 @@
 typedef struct ws ws_t;
 
 struct websocket_callbacks {
-    void (*on_frame_received)(void* user, const void* data, size_t size,
+    void (*on_frame_received)(void* user, const char* data, size_t size,
                               const struct curl_ws_frame* meta);
 
     void* user;

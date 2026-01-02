@@ -93,8 +93,8 @@ bool ws_send(ws_t* ws, const void* data, size_t size, uint32_t flags) {
 }
 
 bool ws_poll(ws_t* ws) {
-    static const size_t buffer_size = 256;
-    char buffer[buffer_size];
+    static char buffer[8192];
+    size_t buffer_size = sizeof(buffer) - 1; /* to make room for '\0' */
 
     size_t received = buffer_size;
     const struct curl_ws_frame* meta;
@@ -112,6 +112,9 @@ bool ws_poll(ws_t* ws) {
         }
 
         if (ws->callbacks.on_frame_received) {
+            /* enable strlen */
+            buffer[received] = '\0';
+
             ws->callbacks.on_frame_received(ws->callbacks.user, buffer, received, meta);
         }
     } while (received >= buffer_size);

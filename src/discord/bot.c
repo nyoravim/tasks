@@ -25,8 +25,45 @@ typedef struct bot {
     ws_t* gateway;
     uint32_t api;
 
+    bool has_sequence;
+    uint64_t sequence;
+    uint64_t heartbeat_interval;
+
     bool running;
 } bot_t;
+
+static json_object* create_heartbeat(bool has_sequence, uint64_t sequence) {
+    json_object* data = json_object_new_object();
+    assert(data);
+
+    json_object* opcode = json_object_new_int(1);
+    assert(opcode);
+    json_object_object_add(data, "op", opcode);
+
+    json_object* d = has_sequence ? json_object_new_uint64(sequence) : json_object_new_null();
+    assert(d);
+    json_object_object_add(data, "d", d);
+
+    return data;
+}
+
+static bool send_heartbeat(bot_t* bot) {
+    json_object* heartbeat = create_heartbeat(bot->has_sequence, bot->sequence);
+
+    const char* content = json_object_to_json_string(heartbeat);
+    size_t length = strlen(content);
+
+    bool success = ws_send(bot->gateway, content, length, CURLWS_TEXT);
+    json_object_put(heartbeat);
+
+    if (success) {
+        log_info("sent heartbeat");
+        return true;
+    } else {
+        log_error("failed to sent heartbeat");
+        return false;
+    }
+}
 
 static void create_api_url(const char* path, uint32_t api_version, char* buffer,
                            size_t max_length) {
@@ -152,9 +189,14 @@ static ws_t* open_gateway(rest_t* rest, const char* token, uint32_t api,
     return gateway;
 }
 
-void on_frame_received(void* user, const void* data, size_t size,
-                       const struct curl_ws_frame* meta) {
-    log_info("frame of length %zu received", size);
+static void on_frame_received(void* user, const char* data, size_t size,
+                              const struct curl_ws_frame* meta) {
+    /* going to assume its all in one frame */
+    json_object* parsed = json_tokener_parse(data);
+    if (!parsed) {
+        log_warn("failed to parse frame from gateway: %s", data);
+        return;
+    }
 }
 
 bot_t* bot_create(const struct bot_spec* spec) {
@@ -191,6 +233,10 @@ bot_t* bot_create(const struct bot_spec* spec) {
     bot->rest = rest;
     bot->gateway = gateway;
     bot->api = api;
+
+    bot->has_sequence = false;
+    bot->sequence = 0;
+    bot->heartbeat_interval = 0;
 
     bot->running = false;
     return bot;
