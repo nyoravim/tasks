@@ -60,13 +60,25 @@ static void on_fill_form(const struct command_context* context) {
                 256);
     }
 
+    struct discord_component display;
+    memset(&display, 0, sizeof(struct discord_component));
+    display.type = DISCORD_COMPONENT_CONTAINER;
+    display.label = "greeting";
+
+    struct discord_components components;
+    memset(&components, 0, sizeof(struct discord_components));
+    components.array = &display;
+    components.size = 1;
+
     struct discord_interaction_callback_data callback_data;
     memset(&callback_data, 0, sizeof(struct discord_interaction_callback_data));
-    callback_data.content = buffer;
+    callback_data.custom_id = "test_modal";
+    callback_data.title = "hello";
+    callback_data.components = &components;
 
     struct discord_interaction_response params;
     memset(&params, 0, sizeof(struct discord_interaction_response));
-    params.type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE;
+    params.type = DISCORD_INTERACTION_MODAL;
     params.data = &callback_data;
 
     struct bot_data* data = context->user;
