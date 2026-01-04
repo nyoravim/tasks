@@ -34,8 +34,8 @@ struct bot_spec {
 bot_t* bot_create(const struct bot_spec* spec);
 void bot_destroy(bot_t* bot);
 
-struct discord* bot_get_client(const bot_t* bot);
 uint64_t bot_get_app_id(const bot_t* bot);
+const struct bot_callbacks* bot_get_callbacks(const bot_t* bot);
 
 void bot_start(bot_t* bot);
 void bot_stop(bot_t* bot);

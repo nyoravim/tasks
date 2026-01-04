@@ -80,7 +80,7 @@ static void on_fill_form(const struct command_context* context) {
     params.data = &callback_data;
 
     struct bot_data* data = context->user;
-    struct discord* client = bot_get_client(data->client.bot);
+    /* struct discord* client = bot_get_client(data->client.bot); */
 
     struct discord_ret_interaction_response ret;
     /* bot_populate_interaction_ret(data->client.bot, &ret); */
@@ -130,7 +130,7 @@ static void on_send_command(const struct command_context* context) {
     params.data = &callback_data;
 
     struct bot_data* data = context->user;
-    struct discord* client = bot_get_client(data->client.bot);
+    /* struct discord* client = bot_get_client(data->client.bot); */
 
     struct discord_ret_interaction_response ret;
     /* bot_populate_interaction_ret(data->client.bot, &ret); */
@@ -222,6 +222,7 @@ static bool initialize_client(struct client* client, void* user) {
         return false;
     }
 
+    /*
     struct discord* dc = bot_get_client(client->bot);
     uint64_t app_id = bot_get_app_id(client->bot);
 
@@ -229,6 +230,7 @@ static bool initialize_client(struct client* client, void* user) {
     if (!client->cm) {
         return false;
     }
+    */
 
     return true;
 }
