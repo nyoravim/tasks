@@ -40,7 +40,9 @@ enum {
 };
 
 enum {
+    OPCODE_READY = 0,
     OPCODE_HEARTBEAT = 1,
+    OPCODE_IDENTIFY = 2,
     OPCODE_HELLO = 10,
     OPCODE_HEARTBEAT_ACK = 11,
 };
@@ -55,6 +57,26 @@ typedef struct gateway {
     uint64_t heartbeat_interval_ms;
     struct timespec last_heartbeat;
 } gateway_t;
+
+/* takes ownership of data */
+static bool send_packet(ws_t* ws, int32_t opcode, json_object* data) {
+    json_object* packet = json_object_new_object();
+    assert(packet);
+
+    json_object* opcode_obj = json_object_new_int(opcode);
+    assert(opcode_obj);
+
+    json_object_object_add(packet, "op", opcode_obj);
+    json_object_object_add(packet, "d", data);
+
+    const char* content = json_object_to_json_string(packet);
+    size_t length = strlen(content);
+
+    bool success = ws_send(ws, content, length, CURLWS_TEXT);
+    json_object_put(packet);
+
+    return success;
+}
 
 static void get_heartbeat_time(struct timespec* now) { clock_gettime(CLOCK_MONOTONIC, now); }
 
@@ -73,22 +95,68 @@ static json_object* create_heartbeat(bool has_sequence, uint64_t sequence) {
 }
 
 static bool send_heartbeat(gateway_t* gw) {
-    json_object* heartbeat = create_heartbeat(gw->has_sequence, gw->sequence);
-
-    const char* content = json_object_to_json_string(heartbeat);
-    size_t length = strlen(content);
-
     log_debug("sending heartbeat");
 
-    bool success = ws_send(gw->ws, content, length, CURLWS_TEXT);
-    json_object_put(heartbeat);
+    json_object* d =
+        gw->has_sequence ? json_object_new_uint64(gw->sequence) : json_object_new_null();
 
-    if (success) {
+    if (send_packet(gw->ws, OPCODE_HEARTBEAT, d)) {
         log_info("sent heartbeat");
         return true;
     } else {
         log_error("failed to sent heartbeat");
         return false;
+    }
+}
+
+static uint64_t get_intents(const bot_t* bot) {
+    /* do we need any basic ones? dont think so */
+    uint64_t intents = 0;
+
+    const struct bot_callbacks* callbacks = bot_get_callbacks(bot);
+    /* todo: set intents by checking callbacks */
+
+    return intents;
+}
+
+static json_object* create_runtime_properties() {
+    json_object* properties = json_object_new_object();
+    assert(properties);
+
+    /* im gonna assume linux */
+    json_object* os = json_object_new_string("linux");
+    assert(os);
+
+    json_object* id = json_object_new_string("nyoravim");
+    assert(id);
+
+    json_object_object_add(properties, "browser", json_object_get(id));
+    json_object_object_add(properties, "device", id);
+    json_object_object_add(properties, "os", os);
+
+    return properties;
+}
+
+static void identify_bot(gateway_t* gw) {
+    json_object* identify_packet = json_object_new_object();
+    assert(identify_packet);
+
+    uint64_t intents = get_intents(gw->bot);
+    json_object* intents_obj = json_object_new_uint64(intents);
+    assert(intents_obj);
+
+    const char* token = bot_get_token(gw->bot);
+    json_object* token_obj = json_object_new_string(token);
+    assert(token_obj);
+
+    json_object_object_add(identify_packet, "token", token_obj);
+    json_object_object_add(identify_packet, "intents", intents_obj);
+    json_object_object_add(identify_packet, "properties", create_runtime_properties());
+
+    if (send_packet(gw->ws, OPCODE_IDENTIFY, identify_packet)) {
+        log_info("sent identify packet to discord");
+    } else {
+        log_error("failed to identify!");
     }
 }
 
@@ -106,6 +174,8 @@ static void handle_hello(const json_object* data, gateway_t* gw) {
     /* discord expects heartbeat right away */
     send_heartbeat(gw);
     get_heartbeat_time(&gw->last_heartbeat);
+
+    identify_bot(gw);
 }
 
 static bool get_opcode(const json_object* data, int32_t* opcode) {
@@ -159,16 +229,6 @@ static void read_sequence(const json_object* frame, gateway_t* gw) {
 
     gw->has_sequence = true;
     gw->sequence = json_object_get_uint64(sequence_field);
-}
-
-static uint64_t get_intents(const bot_t* bot) {
-    /* do we need any basic ones? dont think so */
-    uint64_t intents = 0;
-
-    const struct bot_callbacks* callbacks = bot_get_callbacks(bot);
-    /* todo: set intents by checking callbacks */
-
-    return intents;
 }
 
 static void on_frame_received(void* user, const char* data, size_t size,

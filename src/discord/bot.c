@@ -205,7 +205,9 @@ void bot_destroy(bot_t* bot) {
     nv_free(bot);
 }
 
+const char* bot_get_token(const bot_t* bot) { return bot->creds->token; }
 uint64_t bot_get_app_id(const bot_t* bot) { return bot->creds->app_id; }
+const struct bot_callbacks* bot_get_callbacks(const bot_t* bot) { return &bot->callbacks; }
 
 void bot_start(bot_t* bot) {
     bot->running = true;
