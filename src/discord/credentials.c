@@ -51,7 +51,7 @@ struct credentials* credentials_read_from_path(const char* path) {
     bool has_app_id = get_object_int(json, "app_id", &app_id);
 
     if (!token || !has_app_id) {
-        log_error("invalid credential format; must provide token (int) and app_id (str)!");
+        log_error("invalid credential format; must provide token (str) and app_id (int)!");
 
         json_object_put(json);
         return NULL;
