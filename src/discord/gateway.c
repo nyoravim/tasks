@@ -14,6 +14,7 @@
 #include <time.h>
 
 #include <nyoravim/mem.h>
+#include <nyoravim/util.h>
 
 /* https://discord.com/developers/docs/events/gateway#identifying */
 enum {

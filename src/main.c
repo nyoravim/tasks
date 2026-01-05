@@ -172,10 +172,10 @@ static void create_command(const struct bot_data* data) {
     cm_add_command(data->client.cm, &spec);
 }
 
-static void on_ready(const struct bot_context* context, const struct discord_ready* event) {
-    log_info("authenticated as %s#%s", event->user->username, event->user->discriminator);
+static void on_ready(const struct bot_context* context) {
+    log_info("ready event received");
 
-    create_command(context->user);
+    /* create_command(context->user); */
 }
 
 static void on_interaction(const struct bot_context* context,
@@ -195,11 +195,11 @@ static bot_t* create_bot(struct bot_data* data) {
     struct bot_callbacks callbacks;
     memset(&callbacks, 0, sizeof(struct bot_callbacks));
 
-    /*
     callbacks.user = data;
     callbacks.on_ready = on_ready;
+    
+    /*
     callbacks.on_interaction = on_interaction;
-
     callbacks.on_success = on_success;
     callbacks.on_error = on_error;
     */
