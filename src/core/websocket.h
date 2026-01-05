@@ -17,7 +17,12 @@ struct websocket_callbacks {
 };
 
 ws_t* ws_open(const char* url, const struct websocket_callbacks* callbacks);
-void ws_close(ws_t* ws);
+
+/* clean disconnect (frees ws) */
+void ws_close(ws_t* ws, uint16_t code, const char* reason);
+
+/* dirty disconnect (frees ws but does not send close message */
+void ws_disconnect(ws_t* ws);
 
 bool ws_send(ws_t* ws, const void* data, size_t size, uint32_t flags);
 

@@ -10,6 +10,9 @@
 #include <assert.h>
 #include <string.h>
 #include <unistd.h>
+#include <inttypes.h>
+
+#include <arpa/inet.h>
 
 #include <nyoravim/mem.h>
 
@@ -54,13 +57,53 @@ ws_t* ws_open(const char* url, const struct websocket_callbacks* callbacks) {
     return ws;
 }
 
-void ws_close(ws_t* ws) {
+static size_t create_close_payload(char* buffer, size_t max_length, uint16_t code,
+                                   const char* reason) {
+    if (max_length < sizeof(uint16_t)) {
+        return 0;
+    }
+
+    /* code in network byte order */
+    uint16_t htons_code = htons(code);
+    size_t code_size = sizeof(uint16_t);
+    memcpy(buffer, &htons_code, code_size);
+
+    /* and then reason, if present */
+    size_t reason_length;
+    if (reason) {
+        strncpy(buffer + code_size, reason, max_length - code_size);
+        reason_length = strlen(reason);
+    } else {
+        reason_length = 0;
+    }
+
+    size_t assumed_size = reason_length + code_size;
+    return assumed_size > max_length ? max_length : assumed_size;
+}
+
+void ws_close(ws_t* ws, uint16_t code, const char* reason) {
     if (!ws) {
         return;
     }
 
+    log_debug("closing websocket with code %" PRIu16, code);
+    if (reason) {
+        log_debug("reason: %s", reason);
+    }
+
+    char buffer[256];
+    size_t buffer_size = create_close_payload(buffer, sizeof(buffer), code, reason);
+
     size_t sent;
-    curl_ws_send(ws->handle, "", 0, &sent, 0, CURLWS_CLOSE);
+    curl_ws_send(ws->handle, buffer, buffer_size, &sent, 0, CURLWS_CLOSE);
+
+    ws_disconnect(ws);
+}
+
+void ws_disconnect(ws_t* ws) {
+    if (!ws) {
+        return;
+    }
 
     curl_easy_cleanup(ws->handle);
     nv_free(ws);

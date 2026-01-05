@@ -40,7 +40,7 @@ enum {
 };
 
 enum {
-    OPCODE_READY = 0,
+    OPCODE_DISPATCH = 0,
     OPCODE_HEARTBEAT = 1,
     OPCODE_IDENTIFY = 2,
     OPCODE_HELLO = 10,
@@ -56,6 +56,9 @@ typedef struct gateway {
 
     uint64_t heartbeat_interval_ms;
     struct timespec last_heartbeat;
+
+    char* message_buffer;
+    size_t buffer_size;
 } gateway_t;
 
 /* takes ownership of data */
@@ -231,18 +234,67 @@ static void read_sequence(const json_object* frame, gateway_t* gw) {
     gw->sequence = json_object_get_uint64(sequence_field);
 }
 
+/* manage message buffer while parsing data. note that this assumes that the websocket receives
+ * completely valid json and memory will start leaking if it does not */
+static json_object* parse_websocket_data(const char* data, size_t size, gateway_t* gw) {
+    bool buffered;
+    const char* parseable;
+
+    /* message_buffer is gibberish unless buffer_size > 0 */
+    if (gw->buffer_size > 0) {
+        buffered = true;
+        log_trace("previously buffered data; reallocating and extending buffer to parse");
+
+        size_t new_size = gw->buffer_size + size;
+        gw->message_buffer = nv_realloc(gw->message_buffer, new_size);
+        assert(gw->message_buffer);
+
+        memcpy(gw->message_buffer + gw->buffer_size, data, size);
+        gw->message_buffer[new_size] = '\0';
+
+        gw->buffer_size = new_size;
+    } else {
+        log_trace("no previously buffered data; not allocating anything");
+
+        buffered = false;
+        parseable = data;
+    }
+
+    json_object* parsed = json_tokener_parse(parseable);
+    if (parsed) {
+        /* if previously buffered, we can clear data now */
+        if (buffered) {
+            nv_free(gw->message_buffer);
+            gw->buffer_size = 0;
+        }
+    } else {
+        /* otherwise, if we failed to parse and it wasnt previously buffered, allocate a new buffer
+         * for storage */
+        if (!buffered) {
+            /* buffer will be appended to regardless; we do not need a null terminator */
+            gw->message_buffer = nv_alloc(size);
+            memcpy(gw->message_buffer, data, size);
+
+            gw->buffer_size = size;
+        }
+    }
+
+    return parsed;
+}
+
 static void on_frame_received(void* user, const char* data, size_t size,
                               const struct curl_ws_frame* meta) {
     if ((meta->flags & CURLWS_TEXT) == 0) {
         return; /* dont care */
     }
 
-    log_debug("frame received from gateway (len %zu)", size);
+    log_debug("packet received from gateway (len %zu)", size);
 
-    /* going to assume its all in one frame */
-    json_object* parsed = json_tokener_parse(data);
+    json_object* parsed = parse_websocket_data(data, size, user);
     if (!parsed) {
-        log_warn("failed to parse frame from gateway: %s", data);
+        log_debug(
+            "failed to parse received frame; assuming valid json and carrying over to next packet");
+
         return;
     }
 
@@ -259,6 +311,7 @@ gateway_t* gateway_open(const char* url, bot_t* bot) {
     gw->bot = bot;
     gw->has_sequence = false;
     gw->heartbeat_interval_ms = 0;
+    gw->buffer_size = 0;
 
     struct websocket_callbacks callbacks;
     callbacks.user = gw;
@@ -282,7 +335,7 @@ void gateway_close(gateway_t* gw) {
 
     /* todo: send close message */
 
-    ws_close(gw->ws);
+    ws_close(gw->ws, 1000, "bot triggered close");
     nv_free(gw);
 }
 

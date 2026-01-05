@@ -3,7 +3,6 @@
 #include "gateway.h"
 
 #include "../core/rest.h"
-#include "../core/websocket.h"
 
 #include <log.h>
 
@@ -13,7 +12,6 @@
 #include <assert.h>
 #include <inttypes.h>
 #include <unistd.h>
-#include <time.h>
 
 #include <nyoravim/map.h>
 #include <nyoravim/mem.h>
