@@ -104,7 +104,7 @@ static bool send_heartbeat(gateway_t* gw) {
         gw->has_sequence ? json_object_new_uint64(gw->sequence) : json_object_new_null();
 
     if (send_packet(gw->ws, OPCODE_HEARTBEAT, d)) {
-        log_info("sent heartbeat");
+        log_debug("sent heartbeat");
         return true;
     } else {
         log_error("failed to sent heartbeat");
@@ -157,7 +157,7 @@ static void identify_bot(gateway_t* gw) {
     json_object_object_add(identify_packet, "properties", create_runtime_properties());
 
     if (send_packet(gw->ws, OPCODE_IDENTIFY, identify_packet)) {
-        log_info("sent identify packet to discord");
+        log_debug("sent identify packet to discord");
     } else {
         log_error("failed to identify!");
     }

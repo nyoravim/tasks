@@ -47,10 +47,10 @@ typedef struct rest {
 static uint32_t curl_refs = 0;
 
 bool rest_curl_ref() {
-    log_debug("curl ref");
+    log_trace("curl ref");
 
     if (curl_refs == 0) {
-        log_info("initializing libcurl");
+        log_debug("initializing libcurl");
 
         CURLcode result = curl_global_init(CURL_GLOBAL_ALL);
         if (result != CURLE_OK) {
@@ -68,11 +68,11 @@ void rest_curl_unref() {
         return;
     }
 
-    log_debug("curl unref");
+    log_trace("curl unref");
     curl_refs--;
 
     if (curl_refs == 0) {
-        log_info("no more curl handles; cleaning up libcurl");
+        log_debug("no more curl handles; cleaning up libcurl");
         curl_global_cleanup();
     }
 }

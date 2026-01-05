@@ -22,7 +22,7 @@ typedef struct ws {
 } ws_t;
 
 ws_t* ws_open(const char* url, const struct websocket_callbacks* callbacks) {
-    log_info("opening websocket to url: %s", url);
+    log_debug("opening websocket to url: %s", url);
 
     if (!rest_curl_ref()) {
         return NULL;
