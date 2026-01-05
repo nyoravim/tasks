@@ -1,6 +1,7 @@
 #include "gateway.h"
 
 #include "bot.h"
+#include "dispatch.h"
 
 #include "../core/websocket.h"
 
@@ -126,7 +127,7 @@ static json_object* create_runtime_properties() {
     json_object* properties = json_object_new_object();
     assert(properties);
 
-    /* im gonna assume linux */
+    /* im gonna assume linux; could detect */
     json_object* os = json_object_new_string("linux");
     assert(os);
 
@@ -213,13 +214,36 @@ static void handle_frame(const json_object* frame, gateway_t* gw) {
         log_debug("no data in frame");
     }
 
+    const char* type = NULL;
+    json_object* type_obj = json_object_object_get(frame, "t");
+
+    if (type_obj && json_object_get_type(type_obj) == json_type_string) {
+        type = json_object_get_string(type_obj);
+    }
+
+    if (type) {
+        log_trace("t: %s", type);
+    }
+
     switch (opcode) {
+    case OPCODE_DISPATCH:
+        if (type) {
+            log_trace("dispatching event %s", type);
+            dispatch_event(gw->bot, type, data);
+        } else {
+            log_warn("dispatch frame had no type; ignoring");
+        }
+
+        break;
     case OPCODE_HEARTBEAT:
         /* a server heartbeat expects an app heartbeat back right away */
         send_heartbeat(gw);
         break;
     case OPCODE_HELLO:
         handle_hello(data, gw);
+        break;
+    case OPCODE_HEARTBEAT_ACK:
+        log_trace("heartbeat acknowledged");
         break;
     }
 }

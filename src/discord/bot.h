@@ -10,6 +10,11 @@ struct bot_context {
     bot_t* bot;
 };
 
+struct bot_error {
+    int64_t code;
+    const char* response;
+};
+
 struct bot_callbacks {
     void* user;
 
@@ -18,7 +23,7 @@ struct bot_callbacks {
     /* todo: resolve type */
     void (*on_interaction)(const struct bot_context* context, const void* event);
 
-    void (*on_error)(const struct bot_context* context, const char* response);
+    void (*on_error)(const struct bot_context* context, const struct bot_error* error);
 };
 
 struct bot_spec {
