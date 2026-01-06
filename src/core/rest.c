@@ -245,7 +245,6 @@ bool rest_send(rest_t* rest, const struct http_request* spec,
 
     char* method_upper = str_to_upper(spec->method);
     bool is_get = strcmp(method_upper, "GET") == 0;
-    nv_free(method_upper);
 
     /* get method should send no data */
     if (is_get || spec->size == 0) {
@@ -260,8 +259,13 @@ bool rest_send(rest_t* rest, const struct http_request* spec,
         req->body = block;
     }
 
+    log_trace("%s request to %s", method_upper, spec->url);
+    for (size_t i = 0; i < spec->num_headers; i++) {
+        log_trace("header \"%s\"", spec->headers[i]);
+    }
+
     curl_easy_setopt(handle, CURLOPT_URL, spec->url);
-    curl_easy_setopt(handle, CURLOPT_CUSTOMREQUEST, spec->method);
+    curl_easy_setopt(handle, CURLOPT_CUSTOMREQUEST, method_upper);
     curl_easy_setopt(handle, CURLOPT_HTTPHEADER, req->headers);
 
     curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, rest_write_callback);
@@ -273,6 +277,7 @@ bool rest_send(rest_t* rest, const struct http_request* spec,
     curl_multi_add_handle(rest->multi, handle);
     assert(nv_map_insert(rest->requests, handle, req));
 
+    nv_free(method_upper);
     return handle;
 }
 

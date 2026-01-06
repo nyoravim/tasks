@@ -135,6 +135,8 @@ static char* get_gateway_url(rest_t* rest, const char* token, uint32_t api) {
 }
 
 static gateway_t* open_gateway(bot_t* bot) {
+    log_debug("opening gateway with api version %" PRIu32, bot->api);
+
     char* url = get_gateway_url(bot->rest, bot->creds->token, bot->api);
     if (!url) {
         log_error("failed to retrieve gateway url from discord!");
@@ -205,7 +207,10 @@ void bot_destroy(bot_t* bot) {
 
 const char* bot_get_token(const bot_t* bot) { return bot->creds->token; }
 uint64_t bot_get_app_id(const bot_t* bot) { return bot->creds->app_id; }
+
 const struct bot_callbacks* bot_get_callbacks(const bot_t* bot) { return &bot->callbacks; }
+
+uint32_t bot_get_api_version(const bot_t* bot) { return bot->api; }
 
 void bot_start(bot_t* bot) {
     bot->running = true;

@@ -1,6 +1,7 @@
 #include "discord/bot.h"
 #include "discord/credentials.h"
 #include "discord/command_manager.h"
+#include "discord/user.h"
 
 #include "core/database.h"
 
@@ -172,8 +173,8 @@ static void create_command(const struct bot_data* data) {
     cm_add_command(data->client.cm, &spec);
 }
 
-static void on_ready(const struct bot_context* context) {
-    log_info("ready event received");
+static void on_ready(const struct bot_context* context, const struct bot_ready_event* event) {
+    log_info("authenticated as user: %s#%s", event->user->username, event->user->discriminator);
 
     /* create_command(context->user); */
 }
@@ -197,7 +198,7 @@ static bot_t* create_bot(struct bot_data* data) {
 
     callbacks.user = data;
     callbacks.on_ready = on_ready;
-    
+
     /*
     callbacks.on_interaction = on_interaction;
     callbacks.on_success = on_success;
