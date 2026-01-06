@@ -1,7 +1,7 @@
 #include "discord/bot.h"
 #include "discord/credentials.h"
 #include "discord/command_manager.h"
-#include "discord/user.h"
+#include "discord/types/user.h"
 
 #include "core/database.h"
 
@@ -199,13 +199,9 @@ static bot_t* create_bot(struct bot_data* data) {
     callbacks.user = data;
     callbacks.on_ready = on_ready;
 
-    /*
-    callbacks.on_interaction = on_interaction;
-    callbacks.on_success = on_success;
-    callbacks.on_error = on_error;
-    */
-
     struct bot_spec spec;
+    memset(&spec, 0, sizeof(struct bot_spec));
+
     spec.creds = creds;
     spec.callbacks = &callbacks;
 

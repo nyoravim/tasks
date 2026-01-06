@@ -2,8 +2,8 @@
 
 #include "bot.h"
 
-#include "application.h"
-#include "user.h"
+#include "types/application.h"
+#include "types/user.h"
 
 #include <log.h>
 
