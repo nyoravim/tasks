@@ -33,14 +33,6 @@ static void sigint_handler(int sig) {
     bot_stop(active_bot);
 }
 
-static void on_success(const struct bot_context* context, const struct discord_response* response) {
-    log_info("success");
-}
-
-static void on_error(const struct bot_context* context, const struct discord_response* response) {
-    /* log_error("discord error: %s", discord_strerror(response->code, context->client)); */
-}
-
 static void on_fill_form(const struct command_context* context) {
     const char* name = NULL;
     for (int i = 0; i < context->event->data->options->size; i++) {
@@ -177,19 +169,10 @@ static void create_command(const struct bot_data* data) {
 
 static void on_ready(const struct bot_context* context, const struct bot_ready_event* event) {
     log_info("authenticated as user: %s#%s", event->user->username, event->user->discriminator);
-
-    /* create_command(context->user); */
 }
 
 static void on_interaction(const struct bot_context* context,
                            const struct interaction* event) {
-    /*
-    struct bot_data* data = context->user;
-    if (cm_process_interaction(data->client.cm, NULL, event)) {
-        return;
-    }
-    */
-
     log_debug("interaction received");
     if (event->type == INTERACTION_TYPE_APPLICATION_COMMAND) {
         struct interaction_command_data* data = event->data;
@@ -229,16 +212,6 @@ static bool initialize_client(struct client* client, void* user) {
     if (!client->bot) {
         return false;
     }
-
-    /*
-    struct discord* dc = bot_get_client(client->bot);
-    uint64_t app_id = bot_get_app_id(client->bot);
-
-    client->cm = cm_new(user, dc, app_id);
-    if (!client->cm) {
-        return false;
-    }
-    */
 
     return true;
 }

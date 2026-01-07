@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#include <json.h>
+
 typedef struct bot bot_t;
 
 struct bot_context {
@@ -12,7 +14,9 @@ struct bot_context {
 
 struct bot_error {
     int64_t code;
-    const char* response;
+
+    /* not owned by error callback! make reference if necessary */
+    json_object* response;
 };
 
 struct bot_ready_event {
@@ -53,5 +57,9 @@ uint32_t bot_get_api_version(const bot_t* bot);
 
 void bot_start(bot_t* bot);
 void bot_stop(bot_t* bot);
+
+/* send a synchronous request to the discord REST api */
+json_object* bot_send_api_request(bot_t* bot, const char* path, const char* method,
+                                  json_object* body);
 
 #endif

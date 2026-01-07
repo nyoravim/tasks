@@ -223,3 +223,40 @@ void bot_start(bot_t* bot) {
 }
 
 void bot_stop(bot_t* bot) { bot->running = false; }
+
+static bool is_status_ok(int64_t status) { return status >= 200 && status < 300; }
+
+json_object* bot_send_api_request(bot_t* bot, const char* path, const char* method,
+                                  json_object* body) {
+    struct discord_rest_data data;
+    data.path = path;
+    data.method = method;
+    data.body = body;
+
+    data.token = bot->creds->token;
+    data.api = bot->api;
+
+    json_object* response;
+    int64_t status = send_discord_rest_request(bot->rest, &data, &response);
+
+    if (is_status_ok(status)) {
+        log_debug("request to api endpoint %s returned success status %" PRIi64, path, status);
+        return response;
+    } else if (bot->callbacks.on_error) {
+        struct bot_context bc;
+        bc.bot = bot;
+        bc.user = bot->callbacks.user;
+
+        struct bot_error err;
+        err.response = response;
+        err.code = status;
+
+        bot->callbacks.on_error(&bc, &err);
+    } else {
+        const char* error_text = json_object_to_json_string(response);
+        log_error("discord returned error %" PRIi64 ": %s", status, error_text);
+    }
+
+    json_object_put(response);
+    return NULL;
+}
