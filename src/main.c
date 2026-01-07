@@ -180,11 +180,15 @@ static void on_ready(const struct bot_context* context, const struct bot_ready_e
 }
 
 static void on_interaction(const struct bot_context* context,
-                           const struct discord_interaction* event) {
+                           const struct interaction* event) {
+    /*
     struct bot_data* data = context->user;
     if (cm_process_interaction(data->client.cm, NULL, event)) {
         return;
     }
+    */
+
+    log_debug("interaction received");
 }
 
 static bot_t* create_bot(struct bot_data* data) {
@@ -198,6 +202,7 @@ static bot_t* create_bot(struct bot_data* data) {
 
     callbacks.user = data;
     callbacks.on_ready = on_ready;
+    callbacks.on_interaction = on_interaction;
 
     struct bot_spec spec;
     memset(&spec, 0, sizeof(struct bot_spec));

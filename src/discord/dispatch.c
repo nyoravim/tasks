@@ -5,6 +5,7 @@
 
 #include "types/application.h"
 #include "types/user.h"
+#include "types/interaction.h"
 
 #include <log.h>
 
@@ -82,10 +83,36 @@ static void on_ready(gateway_t* gw, const json_object* data) {
     nv_free(ready.resume_gateway_url);
 }
 
+static void on_interaction_create(gateway_t* gw, const json_object* data) {
+    struct interaction interaction;
+    if (!interaction_parse(&interaction, data)) {
+        log_error("failed to parse interaction from discord; ignoring");
+        return;
+    }
+
+    bot_t* bot = gateway_get_bot(gw);
+    const struct bot_callbacks* callbacks = bot_get_callbacks(bot);
+
+    if (callbacks->on_interaction) {
+        struct bot_context bc;
+        bc.bot = bot;
+        bc.user = callbacks->user;
+
+        callbacks->on_interaction(&bc, &interaction);
+    }
+
+    interaction_cleanup(&interaction);
+}
+
 /* assumes type is uppercase */
 static void do_dispatch(gateway_t* gw, const char* type, const json_object* data) {
     if (strcmp(type, "READY") == 0) {
         on_ready(gw, data);
+        return;
+    }
+
+    if (strcmp(type, "INTERACTION_CREATE") == 0) {
+        on_interaction_create(gw, data);
         return;
     }
 

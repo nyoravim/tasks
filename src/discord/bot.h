@@ -22,13 +22,14 @@ struct bot_ready_event {
     const char* session_id;
 };
 
+/* from types/interaction.h */
+struct interaction;
+
 struct bot_callbacks {
     void* user;
 
     void (*on_ready)(const struct bot_context* context, const struct bot_ready_event* event);
-
-    /* todo: resolve type */
-    void (*on_interaction)(const struct bot_context* context, const void* event);
+    void (*on_interaction)(const struct bot_context* context, const struct interaction* event);
 
     void (*on_error)(const struct bot_context* context, const struct bot_error* error);
 };
