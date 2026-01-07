@@ -32,7 +32,6 @@ typedef struct command command_t;
 typedef struct bot bot_t;
 
 struct command_invocation_context {
-    bot_t* bot;
     command_t* cmd;
     void* user;
 
@@ -63,18 +62,16 @@ struct command_spec {
 
     size_t num_options;
     const struct command_option_spec* options;
+
+    uint64_t guild_id;
 };
 
 command_t* command_register(const struct command_spec* spec);
-
 void command_free(command_t* cmd);
 
 /* from types/interaction.h */
 struct interaction_command_data;
 
 bool command_invoke(const struct interaction_command_data* data);
-
-/* from types/interaction.h */
-struct interaction;
 
 #endif
