@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 #include <json.h>
 
@@ -12,6 +13,33 @@ enum {
     INTERACTION_TYPE_MESSAGE_COMPONENT = 3,
     INTERACTION_TYPE_APPLICATION_COMMAND_AUTOCOMPLETE = 4,
     INTERACTION_TYPE_MODEL_SUBMIT = 5,
+};
+
+struct command_option_data {
+    char* name;
+
+    uint32_t type;
+    char* value;
+
+    size_t num_options;
+    struct command_option_data* options;
+
+    bool focused;
+};
+
+struct interaction_command_data {
+    uint64_t id;
+    char* name;
+
+    uint32_t type;
+
+    /* not gonna bother with resolved */
+
+    size_t num_options;
+    struct command_option_data* options;
+
+    uint64_t guild_id;
+    uint64_t target_id;
 };
 
 struct interaction {

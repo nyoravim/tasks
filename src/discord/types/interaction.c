@@ -10,6 +10,81 @@
 #include <nyoravim/mem.h>
 #include <nyoravim/util.h>
 
+static void free_command_options(struct command_option_data* data, size_t count) {
+    for (size_t i = 0; i < count; i++) {
+        const struct command_option_data* option = &data[i];
+
+        nv_free(option->name);
+        nv_free(option->value);
+
+        free_command_options(option->options, option->num_options);
+    }
+
+    nv_free(data);
+}
+
+static void free_command_data(struct interaction_command_data* data) {
+    if (!data) {
+        return;
+    }
+
+    free_command_options(data->options, data->num_options);
+    nv_free(data->name);
+    nv_free(data);
+}
+
+static struct interaction_command_data* parse_command_data(const json_object* data) {
+    if (!data) {
+        return NULL;
+    }
+
+    struct interaction_command_data* cmd = nv_alloc(sizeof(struct interaction_command_data));
+    memset(cmd, 0, sizeof(struct interaction_command_data));
+
+    json_object* field = json_object_object_get(data, "id");
+    if (!snowflake_parse(&cmd->id, field)) {
+        log_error("command data had no id!");
+
+        free_command_data(cmd);
+        return NULL;
+    }
+
+    field = json_object_object_get(data, "name");
+    if (!field || json_object_get_type(field) != json_type_string) {
+        log_error("command data had no name!");
+
+        free_command_data(cmd);
+        return NULL;
+    }
+
+    const char* name = json_object_get_string(field);
+    cmd->name = nv_strdup(name);
+
+    field = json_object_object_get(data, "type");
+    if (!field || json_object_get_type(field) != json_type_int) {
+        log_error("command data had no command type!");
+
+        free_command_data(cmd);
+        return NULL;
+    }
+
+    cmd->type = (uint32_t)json_object_get_int(field);
+
+    /* todo: options */
+
+    field = json_object_object_get(data, "guild_id");
+    if (!snowflake_parse(&cmd->guild_id, field)) {
+        cmd->guild_id = 0;
+    }
+
+    field = json_object_object_get(data, "target_id");
+    if (!snowflake_parse(&cmd->target_id, field)) {
+        cmd->target_id = 0;
+    }
+
+    return cmd;
+}
+
 bool interaction_parse(struct interaction* interaction, const json_object* data) {
     memset(interaction, 0, sizeof(struct interaction));
     if (!data) {
@@ -46,7 +121,10 @@ bool interaction_parse(struct interaction* interaction, const json_object* data)
     bool should_have_data = true;
 
     switch (interaction->type) {
-        /* todo: implement interaction data */
+    case INTERACTION_TYPE_APPLICATION_COMMAND:
+    case INTERACTION_TYPE_APPLICATION_COMMAND_AUTOCOMPLETE:
+        interaction->data = parse_command_data(field);
+        break;
     default:
         interaction->data = NULL;
         should_have_data = false;
@@ -95,15 +173,17 @@ bool interaction_parse(struct interaction* interaction, const json_object* data)
 void interaction_cleanup(const struct interaction* interaction) {
     if (interaction->data) {
         switch (interaction->type) {
-            /* todo: implement interaction data */
+        case INTERACTION_TYPE_APPLICATION_COMMAND:
+        case INTERACTION_TYPE_APPLICATION_COMMAND_AUTOCOMPLETE:
+            free_command_data(interaction->data);
+            break;
         default:
             log_warn("potentially leaking memory from interaction; no data associated with "
                      "interaction type");
 
+            nv_free(interaction->data);
             break;
         }
-
-        nv_free(interaction->data);
     }
 
     if (interaction->user) {

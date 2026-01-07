@@ -1,7 +1,9 @@
 #include "discord/bot.h"
 #include "discord/credentials.h"
 #include "discord/command_manager.h"
+
 #include "discord/types/user.h"
+#include "discord/types/interaction.h"
 
 #include "core/database.h"
 
@@ -189,6 +191,10 @@ static void on_interaction(const struct bot_context* context,
     */
 
     log_debug("interaction received");
+    if (event->type == INTERACTION_TYPE_APPLICATION_COMMAND) {
+        struct interaction_command_data* data = event->data;
+        log_debug("command: %s", data->name);
+    }
 }
 
 static bot_t* create_bot(struct bot_data* data) {
