@@ -11,4 +11,8 @@ void gateway_close(gateway_t* gw);
 
 void gateway_poll(gateway_t* gw);
 
+void gateway_start_session(gateway_t* gw, const char* id, const char* resume_url);
+
+bot_t* gateway_get_bot(const gateway_t* gw);
+
 #endif

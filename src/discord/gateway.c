@@ -49,9 +49,18 @@ enum {
     OPCODE_HEARTBEAT_ACK = 11,
 };
 
+struct gateway_session {
+    bool started;
+
+    char* id;
+    char* resume_url;
+};
+
 typedef struct gateway {
     ws_t* ws;
     bot_t* bot;
+
+    struct gateway_session session;
 
     bool has_sequence;
     uint64_t sequence;
@@ -230,7 +239,7 @@ static void handle_frame(const json_object* frame, gateway_t* gw) {
     case OPCODE_DISPATCH:
         if (type) {
             log_trace("dispatching event %s", type);
-            dispatch_event(gw->bot, type, data);
+            dispatch_event(gw, type, data);
         } else {
             log_warn("dispatch frame had no type; ignoring");
         }
@@ -338,6 +347,8 @@ gateway_t* gateway_open(const char* url, bot_t* bot) {
     gw->heartbeat_interval_ms = 0;
     gw->buffer_size = 0;
 
+    memset(&gw->session, 0, sizeof(struct gateway_session));
+
     struct websocket_callbacks callbacks;
     callbacks.user = gw;
     callbacks.on_frame_received = on_frame_received;
@@ -358,7 +369,8 @@ void gateway_close(gateway_t* gw) {
         return;
     }
 
-    /* todo: send close message */
+    nv_free(gw->session.id);
+    nv_free(gw->session.resume_url);
 
     ws_close(gw->ws, 1000, "bot triggered close");
     nv_free(gw);
@@ -389,3 +401,23 @@ void gateway_poll(gateway_t* gw) {
     ws_poll(gw->ws);
     check_heartbeat_timer(gw);
 }
+
+void gateway_start_session(gateway_t* gw, const char* id, const char* resume_url) {
+    if (gw->session.started) {
+        log_warn("session already started; disregarding new id and url");
+        return;
+    }
+
+    if (!id || !resume_url) {
+        log_error("either id or gateway resume url not passed; session will be unable to restart!");
+        return;
+    }
+
+    gw->session.started = true;
+    gw->session.id = nv_strdup(id);
+    gw->session.resume_url = nv_strdup(resume_url);
+
+    log_debug("session started: %s", id);
+}
+
+bot_t* gateway_get_bot(const gateway_t* gw) { return gw->bot; }

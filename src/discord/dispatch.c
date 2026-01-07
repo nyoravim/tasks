@@ -1,6 +1,7 @@
 #include "dispatch.h"
 
 #include "bot.h"
+#include "gateway.h"
 
 #include "types/application.h"
 #include "types/user.h"
@@ -52,11 +53,15 @@ static void parse_ready_frame(struct ready_frame* event, const json_object* data
     }
 }
 
-static void on_ready(bot_t* bot, const json_object* data) {
+static void on_ready(gateway_t* gw, const json_object* data) {
     struct ready_frame ready;
     parse_ready_frame(&ready, data);
 
+    gateway_start_session(gw, ready.session_id, ready.resume_gateway_url);
+
+    bot_t* bot = gateway_get_bot(gw);
     const struct bot_callbacks* callbacks = bot_get_callbacks(bot);
+
     if (callbacks->on_ready) {
         struct bot_context bc;
         bc.bot = bot;
@@ -78,16 +83,16 @@ static void on_ready(bot_t* bot, const json_object* data) {
 }
 
 /* assumes type is uppercase */
-static void do_dispatch(bot_t* bot, const char* type, const json_object* data) {
+static void do_dispatch(gateway_t* gw, const char* type, const json_object* data) {
     if (strcmp(type, "READY") == 0) {
-        on_ready(bot, data);
+        on_ready(gw, data);
         return;
     }
 
     /* todo: more */
 }
 
-void dispatch_event(bot_t* bot, const char* type, const json_object* data) {
+void dispatch_event(gateway_t* gw, const char* type, const json_object* data) {
     size_t len = strlen(type);
     char* type_upper = nv_alloc(len + 1);
     type_upper[len] = '\0';
@@ -96,6 +101,6 @@ void dispatch_event(bot_t* bot, const char* type, const json_object* data) {
         type_upper[i] = toupper(type[i]);
     }
 
-    do_dispatch(bot, type_upper, data);
+    do_dispatch(gw, type_upper, data);
     nv_free(type_upper);
 }
