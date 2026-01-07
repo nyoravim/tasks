@@ -123,20 +123,13 @@ bool interaction_parse(struct interaction* interaction, const json_object* data)
     switch (interaction->type) {
     case INTERACTION_TYPE_APPLICATION_COMMAND:
     case INTERACTION_TYPE_APPLICATION_COMMAND_AUTOCOMPLETE:
-        interaction->data = parse_command_data(field);
-        break;
-    default:
-        interaction->data = NULL;
-        should_have_data = false;
+        interaction->command_data = parse_command_data(field);
+        if (!interaction->command_data) {
+            interaction_cleanup(interaction);
+            return false;
+        }
 
         break;
-    }
-
-    if (should_have_data && !interaction->data) {
-        log_error("expected data for message type; no data or invalid data received!");
-
-        interaction_cleanup(interaction);
-        return false;
     }
 
     field = json_object_object_get(data, "guild_id");
@@ -171,19 +164,20 @@ bool interaction_parse(struct interaction* interaction, const json_object* data)
 }
 
 void interaction_cleanup(const struct interaction* interaction) {
-    if (interaction->data) {
-        switch (interaction->type) {
-        case INTERACTION_TYPE_APPLICATION_COMMAND:
-        case INTERACTION_TYPE_APPLICATION_COMMAND_AUTOCOMPLETE:
-            free_command_data(interaction->data);
-            break;
-        default:
+    switch (interaction->type) {
+    case INTERACTION_TYPE_APPLICATION_COMMAND:
+    case INTERACTION_TYPE_APPLICATION_COMMAND_AUTOCOMPLETE:
+        free_command_data(interaction->command_data);
+        break;
+    default:
+        if (interaction->reserved) {
             log_warn("potentially leaking memory from interaction; no data associated with "
                      "interaction type");
 
-            nv_free(interaction->data);
-            break;
+            nv_free(interaction->reserved);
         }
+
+        break;
     }
 
     if (interaction->user) {

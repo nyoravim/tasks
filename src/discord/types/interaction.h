@@ -47,7 +47,10 @@ struct interaction {
     uint64_t application_id;
 
     uint32_t type;
-    void* data;
+    union {
+        struct interaction_command_data* command_data;
+        void* reserved;
+    };
 
     /* todo: guild */
     uint64_t guild_id;

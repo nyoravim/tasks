@@ -171,12 +171,10 @@ static void on_ready(const struct bot_context* context, const struct bot_ready_e
     log_info("authenticated as user: %s#%s", event->user->username, event->user->discriminator);
 }
 
-static void on_interaction(const struct bot_context* context,
-                           const struct interaction* event) {
+static void on_interaction(const struct bot_context* context, const struct interaction* event) {
     log_debug("interaction received");
     if (event->type == INTERACTION_TYPE_APPLICATION_COMMAND) {
-        struct interaction_command_data* data = event->data;
-        log_debug("command: %s", data->name);
+        log_debug("command: %s", event->command_data->name);
     }
 }
 
