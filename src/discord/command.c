@@ -140,7 +140,7 @@ static bool invoke_command(command_t* cmd, const struct interaction* event) {
     ic.cmd = cmd;
     ic.user = cmd->user;
     ic.options = options;
-    ic.token = event->token;
+    ic.interaction = event;
 
     /* todo: invoke callback */
 
