@@ -16,8 +16,6 @@ static void free_command_options(struct command_option_data* data, size_t count)
 
         nv_free(option->name);
         nv_free(option->value);
-
-        free_command_options(option->options, option->num_options);
     }
 
     nv_free(data);
@@ -31,6 +29,36 @@ static void free_command_data(struct interaction_command_data* data) {
     free_command_options(data->options, data->num_options);
     nv_free(data->name);
     nv_free(data);
+}
+
+static void parse_option_data(struct command_option_data* option, const json_object* data) {
+    json_object* field = json_object_object_get(data, "type");
+    if (!field || json_object_get_type(field) != json_type_int) {
+        log_warn("option data has no type; aborting");
+        return;
+    }
+
+    option->type = (uint32_t)json_object_get_int(field);
+
+    field = json_object_object_get(data, "name");
+    if (!field || json_object_get_type(field) != json_type_string) {
+        log_warn("option data has no name; aborting");
+        return;
+    }
+
+    const char* name = json_object_get_string(field);
+    option->name = nv_strdup(name);
+
+    field = json_object_object_get(data, "value");
+    if (field) {
+        const char* value = json_object_get_string(field);
+        option->value = nv_strdup(value);
+    }
+
+    field = json_object_object_get(data, "focused");
+    if (field && json_object_get_type(field) == json_type_boolean) {
+        option->focused = (bool)json_object_get_boolean(field);
+    }
 }
 
 static struct interaction_command_data* parse_command_data(const json_object* data) {
@@ -70,7 +98,16 @@ static struct interaction_command_data* parse_command_data(const json_object* da
 
     cmd->type = (uint32_t)json_object_get_int(field);
 
-    /* todo: options */
+    field = json_object_object_get(data, "options");
+    if (field && json_object_get_type(field) == json_type_array) {
+        cmd->num_options = json_object_array_length(field);
+        cmd->options = nv_calloc(cmd->num_options, sizeof(struct command_option_data));
+
+        for (size_t i = 0; i < cmd->num_options; i++) {
+            json_object* element = json_object_array_get_idx(field, i);
+            parse_option_data(&cmd->options[i], element);
+        }
+    }
 
     field = json_object_object_get(data, "guild_id");
     if (!snowflake_parse(&cmd->guild_id, field)) {

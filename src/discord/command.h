@@ -35,6 +35,7 @@ struct command_invocation_context {
     command_t* cmd;
     void* user;
 
+    const char* token;
     const nv_map_t* options;
 };
 

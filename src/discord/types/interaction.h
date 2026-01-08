@@ -21,9 +21,6 @@ struct command_option_data {
     uint32_t type;
     char* value;
 
-    size_t num_options;
-    struct command_option_data* options;
-
     bool focused;
 };
 

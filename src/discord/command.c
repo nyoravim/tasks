@@ -65,9 +65,11 @@ static bool register_command(const struct command_spec* spec) {
 }
 
 command_t* command_register(const struct command_spec* spec) {
+    /*
     if (!register_command(spec)) {
         return NULL;
     }
+    */
 
     command_t* cmd = nv_alloc(sizeof(command_t));
     assert(cmd);
@@ -101,6 +103,50 @@ static bool strings_equal(void* user, const void* lhs, const void* rhs) {
 
 static size_t hash_string(void* user, const void* key) { return nv_hash_string(key); }
 
+static bool invoke_command(command_t* cmd, const struct interaction* event) {
+    struct interaction_command_data* data = event->command_data;
+    if (strcmp(data->name, cmd->name) != 0) {
+        log_warn("command names dont match; disregarding invocation");
+        return false;
+    }
+
+    struct nv_map_callbacks callbacks;
+    callbacks.equals = strings_equal;
+    callbacks.hash = hash_string;
+    callbacks.free_key = command_option_data_free_callback;
+    callbacks.free_value = command_option_data_free_callback;
+
+    char buffer[256];
+    size_t buffer_length = sizeof(buffer) - 1;
+    buffer[buffer_length] = '\0';
+
+    nv_map_t* options = nv_map_alloc(64, &callbacks);
+    for (size_t i = 0; i < data->num_options; i++) {
+        const struct command_option_data* option = &data->options[i];
+
+        const char* prev_value;
+        if (nv_map_get(options, option->name, (void**)&prev_value)) {
+            log_trace("multiple option values exist; concatenating with a semicolon delimiter");
+            snprintf(buffer, buffer_length, "%s;%s", prev_value, option->value);
+
+            /* nv_map_set frees previous value */
+            assert(nv_map_set(options, option->name, nv_strdup(buffer)));
+        } else {
+            assert(nv_map_insert(options, nv_strdup(option->name), nv_strdup(option->name)));
+        }
+    }
+
+    struct command_invocation_context ic;
+    ic.cmd = cmd;
+    ic.user = cmd->user;
+    ic.options = options;
+    ic.token = event->token;
+
+    /* todo: invoke callback */
+
+    return true;
+}
+
 bool command_invoke(command_t* cmd, const struct interaction* event) {
     if (event->application_id != cmd->app_id) {
         log_warn("app ids dont match; command will be ignored");
@@ -108,25 +154,10 @@ bool command_invoke(command_t* cmd, const struct interaction* event) {
     }
 
     switch (event->type) {
-    case INTERACTION_TYPE_APPLICATION_COMMAND: {
-        struct interaction_command_data* data = event->command_data;
-
-        struct command_invocation_context ic;
-        ic.cmd = cmd;
-        ic.user = cmd->user;
-
-        struct nv_map_callbacks callbacks;
-        callbacks.equals = strings_equal;
-        callbacks.hash = hash_string;
-        callbacks.free_key = command_option_data_free_callback;
-        callbacks.free_value = command_option_data_free_callback;
-
-        nv_map_t* options = nv_map_alloc(64, &callbacks);
-    } break;
+    case INTERACTION_TYPE_APPLICATION_COMMAND:
+        return invoke_command(cmd, event);
     default:
         log_warn("this event does not concern this command; disregarding");
         return false;
     }
-
-    return true;
 }
