@@ -70,8 +70,8 @@ command_t* command_register(const struct command_spec* spec);
 void command_free(command_t* cmd);
 
 /* from types/interaction.h */
-struct interaction_command_data;
+struct interaction;
 
-bool command_invoke(const struct interaction_command_data* data);
+bool command_invoke(command_t* cmd, const struct interaction* event);
 
 #endif
