@@ -4,8 +4,7 @@
 
 #include <assert.h>
 
-#define LOGMOD_STATIC
-#include <concord/log.h>
+#include <log.h>
 
 #include <hiredis/hiredis.h>
 

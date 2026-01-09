@@ -8,6 +8,7 @@
 struct credentials {
     char* token;
     uint64_t app_id;
+    uint64_t guild_scope;
 };
 
 struct credentials* credentials_read_from_path(const char* path);

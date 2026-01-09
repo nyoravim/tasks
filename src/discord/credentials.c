@@ -7,7 +7,6 @@
 #include <malloc.h>
 #include <string.h>
 #include <stdlib.h>
-#include <errno.h>
 
 static const char* get_object_string(const json_object* object, const char* key) {
     json_object* item = json_object_object_get(object, key);
@@ -16,13 +15,6 @@ static const char* get_object_string(const json_object* object, const char* key)
     }
 
     return json_object_get_string(item);
-}
-
-static bool parse_to_u64(const char* str, uint64_t* value) {
-    char* endptr;
-    *value = strtoull(str, &endptr, 10);
-
-    return errno != ERANGE && endptr != str;
 }
 
 static bool get_object_int(const json_object* object, const char* key, uint64_t* value) {
@@ -61,6 +53,10 @@ struct credentials* credentials_read_from_path(const char* path) {
     creds->token = strdup(token);
     creds->app_id = app_id;
 
+    if (!get_object_int(json, "guild_scope", &creds->guild_scope)) {
+        creds->guild_scope = 0;
+    }
+
     json_object_put(json);
     return creds;
 }
@@ -73,6 +69,7 @@ struct credentials* credentials_dup(const struct credentials* src) {
     struct credentials* dst = malloc(sizeof(struct credentials));
     dst->token = strdup(src->token);
     dst->app_id = src->app_id;
+    dst->guild_scope = src->guild_scope;
 
     return dst;
 }
