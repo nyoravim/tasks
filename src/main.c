@@ -132,25 +132,49 @@ static void on_ready(const struct bot_context* context, const struct bot_ready_e
     register_command(data, &spec);
 }
 
-static void on_interaction(const struct bot_context* context, const struct interaction* event) {
-    log_debug("interaction received");
-    if (event->type == INTERACTION_TYPE_APPLICATION_COMMAND) {
-        command_t* cmd;
+static void handle_command(const struct bot_context* context, const struct interaction* event) {
+    command_t* cmd;
 
-        struct bot_data* data = context->user;
-        if (!nv_map_get(data->commands, event->command_data->name, (void**)&cmd)) {
-            log_error("command not found: %s", event->command_data->name);
-            return;
-        }
-
-        if (!command_invoke(cmd, event)) {
-            log_error("failed to invoke command: %s", event->command_data->name);
-        }
-
+    struct bot_data* data = context->user;
+    if (!nv_map_get(data->commands, event->command_data->name, (void**)&cmd)) {
+        log_error("command not found: %s", event->command_data->name);
         return;
     }
 
-    if (event->type == INTERACTION_TYPE_MESSAGE_COMPONENT) {
+    if (!command_invoke(cmd, event)) {
+        log_error("failed to invoke command: %s", event->command_data->name);
+    }
+}
+
+static void handle_component(const struct bot_context* context, const struct interaction* event) {
+    if (event->component_data->type != COMPONENT_TYPE_BUTTON) {
+        return;
+    }
+
+    /* assuming boop */
+    const char* name = event->component_data->data;
+    assert(name);
+
+    char buffer[256];
+    snprintf(buffer, sizeof(buffer), "booping %s... success!", name);
+
+    struct message_response response;
+    memset(&response, 0, sizeof(struct message_response));
+
+    response.content = buffer;
+
+    interaction_respond_with_message(event, context->bot, &response);
+}
+
+static void on_interaction(const struct bot_context* context, const struct interaction* event) {
+    switch (event->type) {
+    case INTERACTION_TYPE_APPLICATION_COMMAND:
+    case INTERACTION_TYPE_APPLICATION_COMMAND_AUTOCOMPLETE:
+        handle_command(context, event);
+        break;
+    case INTERACTION_TYPE_MESSAGE_COMPONENT:
+        handle_component(context, event);
+        break;
     }
 }
 

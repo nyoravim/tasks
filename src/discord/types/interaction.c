@@ -6,6 +6,8 @@
 #include "../bot.h"
 #include "../component.h"
 
+#include "../../core/base64.h"
+
 #include <string.h>
 #include <assert.h>
 
@@ -82,6 +84,7 @@ static struct interaction_command_data* parse_command_data(const json_object* da
     }
 
     struct interaction_command_data* cmd = nv_alloc(sizeof(struct interaction_command_data));
+    assert(cmd);
     memset(cmd, 0, sizeof(struct interaction_command_data));
 
     json_object* field = json_object_object_get(data, "id");
@@ -137,6 +140,48 @@ static struct interaction_command_data* parse_command_data(const json_object* da
     return cmd;
 }
 
+static void free_component_data(struct interaction_component_data* data) {
+    if (!data) {
+        return;
+    }
+
+    nv_free(data->data);
+    nv_free(data);
+}
+
+static struct interaction_component_data* parse_component_data(const json_object* data) {
+    if (!data) {
+        return NULL;
+    }
+
+    struct interaction_component_data* comp = nv_alloc(sizeof(struct interaction_component_data));
+    assert(comp);
+    memset(comp, 0, sizeof(struct interaction_component_data));
+
+    json_object* field = json_object_object_get(data, "component_type");
+    if (!field || json_object_get_type(field) != json_type_int) {
+        log_error("no component type on message component interaction!");
+
+        free_component_data(comp);
+        return NULL;
+    }
+
+    comp->type = (uint32_t)json_object_get_int(field);
+
+    field = json_object_object_get(data, "custom_id");
+    if (field && json_object_get_type(field) == json_type_string) {
+        const char* custom_id = json_object_get_string(field);
+
+        comp->data_size = base64_decode(custom_id, NULL);
+        if (comp->data_size > 0) {
+            comp->data = nv_alloc(comp->data_size);
+            base64_decode(custom_id, comp->data);
+        }
+    }
+
+    return comp;
+}
+
 bool interaction_parse(struct interaction* interaction, const json_object* data) {
     memset(interaction, 0, sizeof(struct interaction));
     if (!data) {
@@ -183,6 +228,14 @@ bool interaction_parse(struct interaction* interaction, const json_object* data)
         }
 
         break;
+    case INTERACTION_TYPE_MESSAGE_COMPONENT:
+        interaction->component_data = parse_component_data(field);
+        if (!interaction->component_data) {
+            interaction_cleanup(interaction);
+            return false;
+        }
+
+        break;
     default:
         log_debug("unsupported interaction type with data = %s", json_object_to_json_string(field));
         break;
@@ -224,6 +277,9 @@ void interaction_cleanup(const struct interaction* interaction) {
     case INTERACTION_TYPE_APPLICATION_COMMAND:
     case INTERACTION_TYPE_APPLICATION_COMMAND_AUTOCOMPLETE:
         free_command_data(interaction->command_data);
+        break;
+    case INTERACTION_TYPE_MESSAGE_COMPONENT:
+        free_component_data(interaction->component_data);
         break;
     default:
         if (interaction->reserved) {

@@ -280,7 +280,7 @@ static json_object* parse_websocket_data(const char* data, size_t size, gateway_
         log_trace("previously buffered data; reallocating and extending buffer to parse");
 
         size_t new_size = gw->buffer_size + size;
-        gw->message_buffer = nv_realloc(gw->message_buffer, new_size);
+        gw->message_buffer = nv_realloc(gw->message_buffer, new_size + 1);
         assert(gw->message_buffer);
 
         memcpy(gw->message_buffer + gw->buffer_size, data, size);

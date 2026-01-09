@@ -39,7 +39,7 @@ struct interaction_command_data {
     uint64_t target_id;
 };
 
-struct interaction_message_component_data {
+struct interaction_component_data {
     uint32_t type;
 
     void* data;
@@ -53,6 +53,8 @@ struct interaction {
     uint32_t type;
     union {
         struct interaction_command_data* command_data;
+        struct interaction_component_data* component_data;
+
         void* reserved;
     };
 

@@ -128,15 +128,17 @@ static bool decode_chunk(const char* src, size_t size, uint8_t* dst) {
         }
     }
 
-    for (size_t i = 0; i < size; i++) {
-        uint8_t current = data[i];
-        uint8_t next = data[i + 1];
+    if (dst) {
+        for (size_t i = 0; i < size; i++) {
+            uint8_t current = data[i];
+            uint8_t next = data[i + 1];
 
-        uint8_t value = 0;
-        value |= current << ((i + 1) * 2);
-        value |= next >> (4 - i * 2);
+            uint8_t value = 0;
+            value |= current << ((i + 1) * 2);
+            value |= next >> (4 - i * 2);
 
-        dst[i] = value;
+            dst[i] = value;
+        }
     }
 
     return true;
