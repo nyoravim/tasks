@@ -70,6 +70,8 @@ struct command_spec {
 command_t* command_register(const struct command_spec* spec);
 void command_free(command_t* cmd);
 
+const char* command_get_name(const command_t* cmd);
+
 /* from types/interaction.h */
 struct interaction;
 

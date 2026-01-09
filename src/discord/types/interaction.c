@@ -4,6 +4,7 @@
 #include "user.h"
 
 #include "../bot.h"
+#include "../component.h"
 
 #include <string.h>
 #include <assert.h>
@@ -169,9 +170,10 @@ bool interaction_parse(struct interaction* interaction, const json_object* data)
     interaction->type = (uint32_t)json_object_get_int(field);
 
     field = json_object_object_get(data, "data");
-    bool should_have_data = true;
-
     switch (interaction->type) {
+    case INTERACTION_TYPE_PING:
+        /* nothing lmao */
+        break;
     case INTERACTION_TYPE_APPLICATION_COMMAND:
     case INTERACTION_TYPE_APPLICATION_COMMAND_AUTOCOMPLETE:
         interaction->command_data = parse_command_data(field);
@@ -180,6 +182,9 @@ bool interaction_parse(struct interaction* interaction, const json_object* data)
             return false;
         }
 
+        break;
+    default:
+        log_debug("unsupported interaction type with data = %s", json_object_to_json_string(field));
         break;
     }
 
@@ -251,11 +256,29 @@ bool interaction_respond_with_message(const struct interaction* interaction, bot
     json_object* message = json_object_new_object();
     assert(message);
 
+    field = json_object_new_int((int32_t)data->flags);
+    assert(field);
+    json_object_object_add(message, "flags", field);
+
     if (data->content) {
         field = json_object_new_string(data->content);
         assert(field);
 
         json_object_object_add(message, "content", field);
+    }
+
+    if (data->num_components > 0) {
+        field = json_object_new_array();
+        assert(field);
+
+        for (size_t i = 0; i < data->num_components; i++) {
+            const struct component* comp = &data->components[i];
+            json_object* serialized = component_serialize(comp);
+
+            json_object_array_add(field, serialized);
+        }
+
+        json_object_object_add(message, "components", field);
     }
 
     json_object_object_add(response, "data", message);

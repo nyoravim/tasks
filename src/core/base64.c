@@ -9,59 +9,70 @@
 
 /* im using http encoding just to be safe */
 
-static char to_base64(uint8_t number) {
-    assert(number < 64);
+static bool to_base64(uint8_t number, char* c) {
+    if (number >= 64) {
+        return false;
+    }
 
     /* A-Z starts at 0 */
     if (number < 26) {
-        return (char)number + 'A';
+        *c = (char)number + 'A';
+        return true;
     }
 
     /* a-z starts at 26 */
     if (number < 52) {
-        return (char)(number - 26) + 'a';
+        *c = (char)(number - 26) + 'a';
+        return true;
     }
 
     /* 0-9 starts at 52 */
     if (number < 62) {
-        return (char)(number - 52) + '0';
+        *c = (char)(number - 52) + '0';
+        return true;
     }
 
     /* + or - = 62 */
     if (number == 62) {
-        return '-';
+        *c = '-';
+        return true;
     }
 
     /* / or _ = 63 */
-    return '_';
+    *c = '_';
+    return true;
 }
 
-static uint8_t from_base64(char c) {
+static bool from_base64(char c, uint8_t* value) {
     /* A-Z starts at 0 */
     if (c >= 'A' && c <= 'Z') {
-        return (uint8_t)(c - 'A');
+        *value = (uint8_t)(c - 'A');
+        return true;
     }
 
     /* a-z starts at 26 */
     if (c >= 'a' && c <= 'z') {
-        return (uint8_t)(c - 'a') + 26;
+        *value = (uint8_t)(c - 'a') + 26;
+        return true;
     }
 
     /* 0-9 starts at 52 */
     if (c >= '0' && c <= '9') {
-        return (uint8_t)(c - '0') + 52;
+        *value = (uint8_t)(c - '0') + 52;
+        return true;
     }
 
     switch (c) {
     case '+':
     case '-':
-        return 62;
+        *value = 62;
+        return true;
     case '/':
     case '_':
-        return 63;
+        *value = 63;
+        return true;
     default:
-        assert(false);
-        return 0;
+        return false;
     }
 }
 
@@ -74,14 +85,16 @@ static void encode_chunk(const uint8_t* src, size_t size, char* dst) {
 
         uint8_t value = 0;
         if (i > 0) {
-            value |= src[i - 1] << (6 - i * 2);
+            uint8_t mask = 0xFF >> (8 - i * 2);
+            uint8_t data = src[i - 1] & mask;
+            value |= data << (6 - i * 2);
         }
 
         if (i < size) {
             value |= src[i] >> ((i + 1) * 2);
         }
 
-        dst[i] = to_base64(value);
+        assert(to_base64(value, &dst[i]));
     }
 }
 
@@ -91,8 +104,11 @@ char* base64_encode(const void* src, size_t size) {
         chunk_count++;
     }
 
-    char* dst = nv_alloc(chunk_count * 4);
+    size_t output_length = chunk_count * 4;
+    char* dst = nv_alloc(output_length + 1);
+
     assert(dst);
+    dst[output_length] = '\0';
 
     for (size_t i = 0; i < chunk_count; i++) {
         size_t src_offset = i * 3;
@@ -104,21 +120,33 @@ char* base64_encode(const void* src, size_t size) {
     return dst;
 }
 
-static void decode_chunk(const char* src, size_t size, uint8_t* dst) {
+static bool decode_chunk(const char* src, size_t size, uint8_t* dst) {
     uint8_t data[size + 1];
     for (size_t i = 0; i < size + 1; i++) {
-        data[i] = from_base64(src[i]);
+        if (!from_base64(src[i], &data[i])) {
+            return false;
+        }
     }
 
     for (size_t i = 0; i < size; i++) {
         uint8_t current = data[i];
         uint8_t next = data[i + 1];
 
-        dst[i] = (current << ((i + 1) * 2)) | (next >> (6 - i * 2));
+        uint8_t value = 0;
+        value |= current << ((i + 1) * 2);
+        value |= next >> (4 - i * 2);
+
+        dst[i] = value;
     }
+
+    return true;
 }
 
 size_t base64_decode(const char* src, void* dst) {
+    if (!src) {
+        return 0;
+    }
+
     size_t length = 0;
     for (const char* c = src; *c != '\0' && *c != '='; c++) {
         length++;
@@ -133,12 +161,13 @@ size_t base64_decode(const char* src, void* dst) {
         chunk_count++;
     }
 
-    if (dst) {
-        for (size_t i = 0; i < chunk_count; i++) {
-            size_t src_offset = i * 4;
-            size_t dst_offset = i * 3;
+    for (size_t i = 0; i < chunk_count; i++) {
+        size_t src_offset = i * 4;
+        size_t dst_offset = i * 3;
 
-            decode_chunk(src + src_offset, size - dst_offset, dst + dst_offset);
+        if (!decode_chunk(src + src_offset, size - dst_offset, dst ? dst + dst_offset : NULL)) {
+            /* decoding failed */
+            return 0;
         }
     }
 

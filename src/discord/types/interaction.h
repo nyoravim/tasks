@@ -39,6 +39,13 @@ struct interaction_command_data {
     uint64_t target_id;
 };
 
+struct interaction_message_component_data {
+    uint32_t type;
+
+    void* data;
+    size_t data_size;
+};
+
 struct interaction {
     uint64_t id;
     uint64_t application_id;
@@ -67,10 +74,18 @@ struct interaction {
 bool interaction_parse(struct interaction* interaction, const json_object* data);
 void interaction_cleanup(const struct interaction* interaction);
 
+enum {
+    MESSAGE_EPHEMERAL = 1 << 6,
+    MESSAGE_IS_COMPONENTS_V2 = 1 << 15,
+};
+
 struct message_response {
+    uint32_t flags;
+
     const char* content;
 
-    /* todo: components */
+    size_t num_components;
+    const struct component* components;
 };
 
 /* from bot.h */

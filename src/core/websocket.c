@@ -136,7 +136,7 @@ bool ws_send(ws_t* ws, const void* data, size_t size, uint32_t flags) {
 }
 
 bool ws_poll(ws_t* ws) {
-    static char buffer[8192];
+    static char buffer[1024];
     size_t buffer_size = sizeof(buffer) - 1; /* to make room for '\0' */
 
     size_t received = buffer_size;

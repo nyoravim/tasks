@@ -287,6 +287,7 @@ static json_object* parse_websocket_data(const char* data, size_t size, gateway_
         gw->message_buffer[new_size] = '\0';
 
         gw->buffer_size = new_size;
+        parseable = gw->message_buffer;
     } else {
         log_trace("no previously buffered data; not allocating anything");
 

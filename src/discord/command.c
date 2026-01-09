@@ -179,6 +179,8 @@ void command_free(command_t* cmd) {
     nv_free(cmd);
 }
 
+const char* command_get_name(const command_t* cmd) { return cmd->name; }
+
 static void command_option_data_free_callback(void* user, void* value) { nv_free(value); }
 
 static bool strings_equal(void* user, const void* lhs, const void* rhs) {

@@ -28,12 +28,6 @@ typedef struct bot {
     bool running;
 } bot_t;
 
-static void create_api_url(const char* path, uint32_t api_version, char* buffer,
-                           size_t max_length) {
-    /* spaghetti */
-    snprintf(buffer, max_length, "https://discord.com/api/v%" PRIu32 "%s", api_version, path);
-}
-
 struct discord_rest_data {
     uint32_t api;
     const char* path;
@@ -46,8 +40,11 @@ struct discord_rest_data {
 
 static int64_t send_discord_rest_request(rest_t* rest, const struct discord_rest_data* data,
                                          json_object** resp) {
+    /* dont want to add a double slash */
+    const char* path = data->path[0] == '/' ? data->path + 1 : data->path;
+
     static char url[2048];
-    create_api_url(data->path, data->api, url, sizeof(url));
+    snprintf(url, sizeof(url), "https://discord.com/api/v%" PRIu32 "/%s", data->api, path);
 
     char auth_header[256];
     snprintf(auth_header, sizeof(auth_header), "Authorization: Bot %s", data->token);
