@@ -36,7 +36,7 @@ static void sigint_handler(int sig) {
 
 static void on_fill_form(const struct command_invocation_context* context) {
     const char* name = NULL;
-    assert(nv_map_get(context->options, "name", (void**)name));
+    assert(nv_map_get(context->options, "name", (void**)&name));
 
     char buffer[256];
     if (name) {
@@ -154,16 +154,26 @@ static void on_ready(const struct bot_context* context, const struct bot_ready_e
     struct bot_data* data = context->user;
     log_info("authenticated as user: %s#%s", event->user->username, event->user->discriminator);
 
+    struct command_option_spec option;
+    memset(&option, 0, sizeof(struct command_option_spec));
+    option.name = "name";
+    option.description = "your name";
+    option.type = COMMAND_OPTION_TYPE_STRING;
+    option.required = true;
+
     struct command_spec spec;
     memset(&spec, 0, sizeof(struct command_spec));
 
     spec.name = "fill-form";
+    spec.description = "fill basic chat form";
     spec.bot = context->bot;
     spec.user = data;
     spec.callback = on_fill_form;
+    spec.type = COMMAND_TYPE_CHAT_INPUT;
+    spec.num_options = 1;
+    spec.options = &option;
 
     data->client.fill_form = command_register(&spec);
-    log_info("guh");
 }
 
 static void on_interaction(const struct bot_context* context, const struct interaction* event) {

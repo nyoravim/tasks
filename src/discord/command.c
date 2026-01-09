@@ -3,6 +3,7 @@
 #include "bot.h"
 
 #include "types/interaction.h"
+#include "types/snowflake.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -36,9 +37,94 @@ static void make_command_endpoint(char* buffer, size_t max_length, uint64_t app_
     }
 }
 
+static json_object* serialize_option(const struct command_option_spec* spec) {
+    json_object* option = json_object_new_object();
+    assert(option);
+
+    json_object* field = json_object_new_string(spec->name);
+    assert(field);
+    json_object_object_add(option, "name", field);
+
+    field = json_object_new_string(spec->description);
+    assert(field);
+    json_object_object_add(option, "description", field);
+
+    field = json_object_new_int((int32_t)spec->type);
+    assert(field);
+    json_object_object_add(option, "type", field);
+
+    field = json_object_new_boolean((json_bool)spec->required);
+    assert(field);
+    json_object_object_add(option, "required", field);
+
+    if (spec->choices) {
+        size_t num_choices = nv_map_size(spec->choices);
+
+        struct nv_map_pair choices[num_choices];
+        nv_map_enumerate(spec->choices, choices);
+
+        json_object* choices_obj = json_object_new_array();
+        assert(choices_obj);
+
+        for (size_t i = 0; i < num_choices; i++) {
+            json_object* choice = json_object_new_object();
+            assert(choice);
+
+            field = json_object_new_string(choices[i].key);
+            assert(field);
+            json_object_object_add(choice, "value", field);
+
+            field = json_object_new_string(choices[i].value);
+            assert(field);
+            json_object_object_add(choice, "name", field);
+
+            json_object_array_add(choices_obj, choice);
+        }
+
+        json_object_object_add(option, "choices", choices_obj);
+    }
+
+    return option;
+}
+
 static json_object* create_command_payload(const struct command_spec* spec) {
     json_object* body = json_object_new_object();
     assert(body);
+
+    json_object* field = json_object_new_string(spec->name);
+    assert(field);
+    json_object_object_add(body, "name", field);
+
+    field = json_object_new_string(spec->description);
+    assert(field);
+    json_object_object_add(body, "description", field);
+
+    field = json_object_new_int((int32_t)spec->type);
+    assert(field);
+    json_object_object_add(body, "type", field);
+
+    uint64_t app_id = bot_get_app_id(spec->bot);
+    field = snowflake_serialize(app_id);
+    assert(field);
+    json_object_object_add(body, "application_id", field);
+
+    if (spec->guild_id > 0) {
+        field = snowflake_serialize(spec->guild_id);
+        assert(field);
+        json_object_object_add(body, "guild_id", field);
+    }
+
+    if (spec->num_options > 0) {
+        json_object* options = json_object_new_array();
+        assert(options);
+
+        for (size_t i = 0; i < spec->num_options; i++) {
+            json_object* option = serialize_option(&spec->options[i]);
+            json_object_array_add(options, option);
+        }
+
+        json_object_object_add(body, "options", options);
+    }
 
     return body;
 }
@@ -50,7 +136,7 @@ static bool register_command(const struct command_spec* spec) {
     make_command_endpoint(path, sizeof(path), app_id, spec->guild_id);
 
     json_object* body = create_command_payload(spec);
-    json_object* response = bot_send_api_request(spec->bot, path, "POST", NULL);
+    json_object* response = bot_send_api_request(spec->bot, path, "POST", body);
     json_object_put(body);
 
     if (!response) {
@@ -65,11 +151,9 @@ static bool register_command(const struct command_spec* spec) {
 }
 
 command_t* command_register(const struct command_spec* spec) {
-    /*
     if (!register_command(spec)) {
         return NULL;
     }
-    */
 
     command_t* cmd = nv_alloc(sizeof(command_t));
     assert(cmd);
@@ -132,7 +216,7 @@ static bool invoke_command(command_t* cmd, const struct interaction* event) {
             /* nv_map_set frees previous value */
             assert(nv_map_set(options, option->name, nv_strdup(buffer)));
         } else {
-            assert(nv_map_insert(options, nv_strdup(option->name), nv_strdup(option->name)));
+            assert(nv_map_insert(options, nv_strdup(option->name), nv_strdup(option->value)));
         }
     }
 
@@ -142,7 +226,7 @@ static bool invoke_command(command_t* cmd, const struct interaction* event) {
     ic.options = options;
     ic.interaction = event;
 
-    /* todo: invoke callback */
+    cmd->callback(&ic);
 
     return true;
 }

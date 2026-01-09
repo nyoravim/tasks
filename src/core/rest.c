@@ -268,6 +268,11 @@ bool rest_send(rest_t* rest, const struct http_request* spec,
     curl_easy_setopt(handle, CURLOPT_CUSTOMREQUEST, method_upper);
     curl_easy_setopt(handle, CURLOPT_HTTPHEADER, req->headers);
 
+    if (strcmp(method_upper, "POST") == 0) {
+        curl_easy_setopt(handle, CURLOPT_POST, 1L);
+        curl_easy_setopt(handle, CURLOPT_POSTFIELDSIZE, -1L);
+    }
+
     curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, rest_write_callback);
     curl_easy_setopt(handle, CURLOPT_WRITEDATA, req);
 

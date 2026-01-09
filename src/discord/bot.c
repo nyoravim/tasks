@@ -52,13 +52,13 @@ static int64_t send_discord_rest_request(rest_t* rest, const struct discord_rest
     char auth_header[256];
     snprintf(auth_header, sizeof(auth_header), "Authorization: Bot %s", data->token);
 
-    const char* header = auth_header;
+    const char* headers[] = { auth_header, "Content-Type: application/json" };
 
     struct http_request req;
     req.url = url;
     req.method = data->method;
-    req.num_headers = 1;
-    req.headers = &header;
+    req.num_headers = data->body ? 2 : 1;
+    req.headers = headers;
 
     if (data->body) {
         /* owned by json object */
