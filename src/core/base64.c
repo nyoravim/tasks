@@ -67,8 +67,21 @@ static uint8_t from_base64(char c) {
 
 static void encode_chunk(const uint8_t* src, size_t size, char* dst) {
     for (size_t i = 0; i < 4; i++) {
-        if (i < size + 1) {
+        if (i > size) {
+            dst[i] = '=';
+            continue;
         }
+
+        uint8_t value = 0;
+        if (i > 0) {
+            value |= src[i - 1] << (6 - i * 2);
+        }
+
+        if (i < size) {
+            value |= src[i] >> ((i + 1) * 2);
+        }
+
+        dst[i] = to_base64(value);
     }
 }
 
@@ -89,4 +102,45 @@ char* base64_encode(const void* src, size_t size) {
     }
 
     return dst;
+}
+
+static void decode_chunk(const char* src, size_t size, uint8_t* dst) {
+    uint8_t data[size + 1];
+    for (size_t i = 0; i < size + 1; i++) {
+        data[i] = from_base64(src[i]);
+    }
+
+    for (size_t i = 0; i < size; i++) {
+        uint8_t current = data[i];
+        uint8_t next = data[i + 1];
+
+        dst[i] = (current << ((i + 1) * 2)) | (next >> (6 - i * 2));
+    }
+}
+
+size_t base64_decode(const char* src, void* dst) {
+    size_t length = 0;
+    for (const char* c = src; *c != '\0' && *c != '='; c++) {
+        length++;
+    }
+
+    size_t chunk_count = length / 4;
+    size_t size = chunk_count * 3;
+
+    size_t remainder = length % 4;
+    if (remainder > 0) {
+        size += remainder - 1;
+        chunk_count++;
+    }
+
+    if (dst) {
+        for (size_t i = 0; i < chunk_count; i++) {
+            size_t src_offset = i * 4;
+            size_t dst_offset = i * 3;
+
+            decode_chunk(src + src_offset, size - dst_offset, dst + dst_offset);
+        }
+    }
+
+    return size;
 }
