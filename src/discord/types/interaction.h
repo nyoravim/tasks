@@ -67,4 +67,16 @@ struct interaction {
 bool interaction_parse(struct interaction* interaction, const json_object* data);
 void interaction_cleanup(const struct interaction* interaction);
 
+struct message_response {
+    const char* content;
+
+    /* todo: components */
+};
+
+/* from bot.h */
+typedef struct bot bot_t;
+
+bool interaction_respond_with_message(const struct interaction* interaction, bot_t* bot,
+                                      const struct message_response* data);
+
 #endif

@@ -3,12 +3,26 @@
 #include "snowflake.h"
 #include "user.h"
 
+#include "../bot.h"
+
 #include <string.h>
+#include <assert.h>
 
 #include <log.h>
 
 #include <nyoravim/mem.h>
 #include <nyoravim/util.h>
+
+enum {
+    RESPONSE_TYPE_PONG = 1,
+    RESPONSE_TYPE_CHANNEL_MESSAGE_WITH_SOURCE = 4,
+    RESPONSE_TYPE_DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE = 5,
+    RESPONSE_TYPE_DEFERRED_UPDATE_MESSAGE = 6,
+    RESPONSE_TYPE_UPDATE_MESSAGE = 7,
+    RESPONSE_TYPE_APPLICATION_COMMAND_AUTOCOMPLETE_RESULT = 8,
+    RESPONSE_TYPE_MODAL = 9,
+    RESPONSE_TYPE_LAUNCH_ACTIVITY = 12,
+};
 
 static void free_command_options(struct command_option_data* data, size_t count) {
     for (size_t i = 0; i < count; i++) {
@@ -223,4 +237,35 @@ void interaction_cleanup(const struct interaction* interaction) {
     }
 
     nv_free(interaction->token);
+}
+
+bool interaction_respond_with_message(const struct interaction* interaction, bot_t* bot,
+                                      const struct message_response* data) {
+    json_object* response = json_object_new_object();
+    assert(response);
+
+    json_object* field = json_object_new_int(RESPONSE_TYPE_CHANNEL_MESSAGE_WITH_SOURCE);
+    assert(field);
+    json_object_object_add(response, "type", field);
+
+    json_object* message = json_object_new_object();
+    assert(message);
+
+    if (data->content) {
+        field = json_object_new_string(data->content);
+        assert(field);
+
+        json_object_object_add(message, "content", field);
+    }
+
+    json_object_object_add(response, "data", message);
+
+    static char path[512];
+    snprintf(path, sizeof(path), "/interactions/%" PRIu64 "/%s/callback", interaction->id,
+             interaction->token);
+
+    bool success = bot_send_api_request(bot, path, "POST", response);
+    json_object_put(response);
+
+    return success;
 }

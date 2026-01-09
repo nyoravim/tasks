@@ -90,6 +90,8 @@ static void on_interaction_create(gateway_t* gw, const json_object* data) {
         return;
     }
 
+    log_info("interaction received: %" PRIu64 "/%s", interaction.id, interaction.token);
+
     bot_t* bot = gateway_get_bot(gw);
     const struct bot_callbacks* callbacks = bot_get_callbacks(bot);
 

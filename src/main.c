@@ -23,6 +23,8 @@ struct client {
 struct bot_data {
     struct client client;
     database_t* db;
+
+    uint64_t guild_scope;
 };
 
 static bot_t* active_bot;
@@ -35,6 +37,8 @@ static void sigint_handler(int sig) {
 }
 
 static void on_fill_form(const struct command_invocation_context* context) {
+    struct bot_data* data = context->user;
+
     const char* name = NULL;
     assert(nv_map_get(context->options, "name", (void**)&name));
 
@@ -46,108 +50,10 @@ static void on_fill_form(const struct command_invocation_context* context) {
                 256);
     }
 
-    log_info("Hello %s!", name);
+    struct message_response response;
+    response.content = buffer;
 
-    /*
-    struct discord_component display;
-    memset(&display, 0, sizeof(struct discord_component));
-    display.type = DISCORD_COMPONENT_CONTAINER;
-    display.label = "greeting";
-
-    struct discord_components components;
-    memset(&components, 0, sizeof(struct discord_components));
-    components.array = &display;
-    components.size = 1;
-
-    struct discord_interaction_callback_data callback_data;
-    memset(&callback_data, 0, sizeof(struct discord_interaction_callback_data));
-    callback_data.custom_id = "test_modal";
-    callback_data.title = "hello";
-    callback_data.components = &components;
-
-    struct discord_interaction_response params;
-    memset(&params, 0, sizeof(struct discord_interaction_response));
-    params.type = DISCORD_INTERACTION_MODAL;
-    params.data = &callback_data;
-    */
-}
-
-static void send_redis_command(struct bot_data* data, const char* command, char* buffer,
-                               size_t length) {
-    redisContext* ctx = db_get_context(data->db);
-
-    redisReply* reply = redisCommand(ctx, "%s", command);
-    snprintf(buffer, length, "redis: %s", reply->str);
-    freeReplyObject(reply);
-}
-
-static void on_send_command(const struct command_invocation_context* context) {
-    /*
-    const char* command = NULL;
-    for (int i = 0; i < context->event->data->options->size; i++) {
-        const struct discord_application_command_interaction_data_option* option =
-            &context->event->data->options->array[i];
-
-        if (strcmp(option->name, "command") == 0) {
-            command = option->value;
-            break;
-        }
-    }
-
-    size_t buffer_size = 256;
-    char buffer[buffer_size + 1];
-    buffer[buffer_size] = '\0';
-
-    if (command) {
-        send_redis_command(context->user, command, buffer, buffer_size);
-    } else {
-        strncpy(buffer, "no command specified", buffer_size);
-    }
-
-    struct discord_interaction_callback_data callback_data;
-    memset(&callback_data, 0, sizeof(struct discord_interaction_callback_data));
-    callback_data.content = buffer;
-
-    struct discord_interaction_response params;
-    memset(&params, 0, sizeof(struct discord_interaction_response));
-    params.type = DISCORD_INTERACTION_CHANNEL_MESSAGE_WITH_SOURCE;
-    params.data = &callback_data;
-    */
-}
-
-static void create_command(const struct bot_data* data) {
-    /*
-    struct discord_application_command_option option;
-    memset(&option, 0, sizeof(struct discord_application_command_option));
-    option.type = DISCORD_APPLICATION_OPTION_STRING;
-    option.name = "name";
-    option.description = "your name";
-    option.required = true;
-
-    struct discord_application_command_options options;
-    memset(&options, 0, sizeof(struct discord_application_command_options));
-    options.size = 1;
-    options.array = &option;
-
-    struct command_spec spec;
-    memset(&spec, 0, sizeof(struct command_spec));
-    spec.name = "fill-form";
-    spec.description = "basic fillable form";
-    spec.default_permission = true;
-    spec.options = &options;
-    spec.type = DISCORD_APPLICATION_CHAT_INPUT;
-    spec.callback = on_fill_form;
-
-    cm_add_command(data->client.cm, &spec);
-
-    spec.name = "send-command";
-    spec.description = "send command to redis database";
-    spec.callback = on_send_command;
-    option.name = "command";
-    option.description = "command to send";
-
-    cm_add_command(data->client.cm, &spec);
-    */
+    interaction_respond_with_message(context->interaction, data->client.bot, &response);
 }
 
 static void on_ready(const struct bot_context* context, const struct bot_ready_event* event) {
@@ -172,6 +78,7 @@ static void on_ready(const struct bot_context* context, const struct bot_ready_e
     spec.type = COMMAND_TYPE_CHAT_INPUT;
     spec.num_options = 1;
     spec.options = &option;
+    spec.guild_id = data->guild_scope;
 
     data->client.fill_form = command_register(&spec);
 }
@@ -186,11 +93,13 @@ static void on_interaction(const struct bot_context* context, const struct inter
     }
 }
 
-static bot_t* create_bot(void* user) {
+static bot_t* create_bot(struct bot_data* user) {
     struct credentials* creds = credentials_read_from_path("bot.json");
     if (!creds) {
         return NULL;
     }
+
+    user->guild_scope = creds->guild_scope;
 
     struct bot_callbacks callbacks;
     memset(&callbacks, 0, sizeof(struct bot_callbacks));

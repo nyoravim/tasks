@@ -46,7 +46,7 @@ struct discord_rest_data {
 
 static int64_t send_discord_rest_request(rest_t* rest, const struct discord_rest_data* data,
                                          json_object** resp) {
-    char url[256];
+    static char url[2048];
     create_api_url(data->path, data->api, url, sizeof(url));
 
     char auth_header[256];
@@ -77,7 +77,7 @@ static int64_t send_discord_rest_request(rest_t* rest, const struct discord_rest
     }
 
     if (resp) {
-        *resp = json_tokener_parse(response.content);
+        *resp = response.content ? json_tokener_parse(response.content) : NULL;
     }
 
     nv_free(response.content);
