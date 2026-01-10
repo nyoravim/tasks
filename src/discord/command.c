@@ -229,6 +229,7 @@ static bool invoke_command(command_t* cmd, const struct interaction* event) {
     ic.interaction = event;
 
     cmd->callback(&ic);
+    nv_map_free(options);
 
     return true;
 }
