@@ -2,15 +2,23 @@
 #define _DATABASE_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 /* from hiredis/hiredis.h */
 typedef struct redisContext redisContext;
 
-typedef struct database database_t;
+enum {
+    REDIS_VALUE_TYPE_STRING,
+};
 
-database_t* db_connect(const char* address, uint32_t port);
-void db_close(database_t* db);
+struct redis_value {
+    uint32_t type;
 
-redisContext* db_get_context(const database_t* db);
+    union {
+        char* string;
+    };
+};
+
+bool db_get_hash_field(redisContext* ctx, struct redis_value* value);
 
 #endif
