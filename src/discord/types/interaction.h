@@ -64,9 +64,9 @@ struct interaction {
     /* todo: channel */
     uint64_t channel_id;
 
-    /* todo: member */
+    /* non-null if from a server */
+    struct member* member;
 
-    /* non-null if from a dm */
     struct user* user;
 
     /* token for creating response */

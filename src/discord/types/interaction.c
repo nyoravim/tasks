@@ -2,6 +2,7 @@
 
 #include "snowflake.h"
 #include "user.h"
+#include "member.h"
 
 #include "../bot.h"
 #include "../component.h"
@@ -251,11 +252,20 @@ bool interaction_parse(struct interaction* interaction, const json_object* data)
         interaction->channel_id = 0;
     }
 
-    field = json_object_object_get(data, "user");
-    struct user user;
-    if (user_parse(&user, field)) {
-        interaction->user = nv_alloc(sizeof(struct user));
-        memcpy(interaction->user, &user, sizeof(struct user));
+    field = json_object_object_get(data, "member");
+    struct member member;
+    if (member_parse(&member, field)) {
+        interaction->member = nv_alloc(sizeof(struct member));
+        memcpy(interaction->member, &member, sizeof(struct member));
+
+        interaction->user = member.user;
+    } else {
+        field = json_object_object_get(data, "user");
+        struct user user;
+        if (user_parse(&user, field)) {
+            interaction->user = nv_alloc(sizeof(struct user));
+            memcpy(interaction->user, &user, sizeof(struct user));
+        }
     }
 
     field = json_object_object_get(data, "token");
@@ -292,7 +302,10 @@ void interaction_cleanup(const struct interaction* interaction) {
         break;
     }
 
-    if (interaction->user) {
+    if (interaction->member) {
+        member_cleanup(interaction->member);
+        nv_free(interaction->member);
+    } else if (interaction->user) {
         user_cleanup(interaction->user);
         nv_free(interaction->user);
     }

@@ -8,6 +8,8 @@
 
 #include "core/database.h"
 
+#include "status.h"
+
 #include <log.h>
 
 #include <signal.h>
@@ -47,8 +49,23 @@ static void sigint_handler(int sig) {
     bot_stop(active_bot);
 }
 
+static void log_status(redisContext* db, uint64_t user) {
+    struct status status;
+    if (!status_get(db, user, &status)) {
+        return;
+    }
+
+    log_info("display: %s", status.display_name ? status.display_name : "<null>");
+    log_info("status: %s", status.status_description ? status.status_description : "<null>");
+    log_info("thought: %s", status.current_thought ? status.current_thought : "<null>");
+
+    status_cleanup(&status);
+}
+
 static void on_fill_form(const struct command_invocation_context* context) {
     struct bot_data* data = context->user;
+
+    log_status(data->db, context->interaction->user->id);
 
     const char* name = NULL;
     assert(nv_map_get(context->options, "name", (void**)&name));

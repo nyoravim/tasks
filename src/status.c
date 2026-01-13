@@ -36,7 +36,7 @@ static void update_status_field(struct status* status, const char* key, const ch
 bool status_get(redisContext* db, uint64_t user, struct status* status) {
     memset(status, 0, sizeof(struct status));
 
-    redisReply* reply = redisCommand(db, "HGETALL user:%" PRIu64, user);
+    redisReply* reply = redisCommand(db, "HGETALL status:%" PRIu64, user);
     if (reply->type != REDIS_REPLY_ARRAY || reply->elements % 2 != 0) {
         log_error("invalid redis response");
 
@@ -60,6 +60,7 @@ bool status_get(redisContext* db, uint64_t user, struct status* status) {
         update_status_field(status, key_reply->str, value_reply->str);
     }
 
+    freeReplyObject(reply);
     return true;
 }
 
